@@ -24,7 +24,7 @@ function getClassCode(className: string) {
 async function seed() {
   for (const student of INITIAL_STUDENTS) {
     const classCode = getClassCode(student.className);
-    await prisma.class.upsert({
+    const schoolClass = await prisma.class.upsert({
       where: { code: classCode },
       update: {
         name: student.className,
@@ -49,7 +49,7 @@ async function seed() {
         photoUrl: student.photoUrl || null,
         address: student.address || null,
         house: student.house,
-        classId: student.classId,
+        classId: schoolClass.id,
       },
       create: {
         id: student.id,
@@ -62,7 +62,7 @@ async function seed() {
         photoUrl: student.photoUrl || null,
         address: student.address || null,
         house: student.house,
-        classId: student.classId,
+        classId: schoolClass.id,
       },
     });
 
