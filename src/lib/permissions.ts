@@ -1,11 +1,10 @@
-export type Role = "ADMIN" | "TEACHER" | "PARENT" | "STUDENT" | "ACCOUNTANT";
+export type Role = "ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
 
 export const LOGIN_ROLES = [
   "ADMIN",
   "TEACHER",
   "STUDENT",
   "PARENT",
-  "ACCOUNTANT",
 ] as const;
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -13,13 +12,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   TEACHER: "Teacher",
   STUDENT: "Student",
   PARENT: "Parent",
-  ACCOUNTANT: "Accountant",
 };
 
 export interface UserSession {
   id: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   role: Role;
   avatar?: string;
   studentId?: string;
@@ -124,16 +123,6 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "chat:write",
     "news:read",
     "transcript:read",
-  ],
-  ACCOUNTANT: [
-    "dashboard:read",
-    "accounting:read",
-    "accounting:write",
-    "payroll:read",
-    "payroll:write",
-    "payment:read",
-    "payment:write",
-    "students:read",
   ],
 };
 

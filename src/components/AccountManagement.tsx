@@ -5,11 +5,12 @@ import { createAccountAction } from "@/actions/user-accounts";
 import { LOGIN_ROLES, ROLE_LABELS } from "@/lib/permissions";
 
 export function AccountManagement() {
+  const [role, setRole] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [createdAccount, setCreatedAccount] = useState<{
     name: string;
-    email: string;
+    username: string;
     roleLabel: string;
   } | null>(null);
 
@@ -23,8 +24,9 @@ export function AccountManagement() {
     startTransition(async () => {
       const result = await createAccountAction({
         name: formData.get("name"),
-        email: formData.get("email"),
         role: formData.get("role"),
+        email: formData.get("email"),
+        username: formData.get("username"),
         password: formData.get("password"),
         confirmPassword: formData.get("confirmPassword"),
       });
@@ -36,6 +38,7 @@ export function AccountManagement() {
 
       setCreatedAccount(result.account);
       form.reset();
+      setRole("");
     });
   };
 
@@ -46,9 +49,9 @@ export function AccountManagement() {
           Create a school account
         </h2>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          Create login credentials for a student, teacher, parent, accountant,
-          or another administrator. The username is the email address they will
-          use to sign in.
+          Create login credentials for a teacher, student, parent, or another
+          administrator. Teachers and administrators use an email address as
+          their username; students and parents use a username only.
         </p>
       </div>
 
@@ -66,7 +69,8 @@ export function AccountManagement() {
           className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800"
         >
           Account created for {createdAccount.name} ({createdAccount.roleLabel}).
-          Give them the username {createdAccount.email} and the password you set.
+          Give them the username {createdAccount.username} and the password you
+          set.
         </p>
       )}
 
@@ -85,16 +89,34 @@ export function AccountManagement() {
           />
         </label>
         <label className="text-xs font-medium text-slate-700">
-          Username (email address)
-          <input
-            type="email"
-            name="email"
-            autoComplete="off"
-            maxLength={254}
-            required
-            disabled={isPending}
-            className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
-          />
+          {role === "ADMIN" || role === "TEACHER" ? (
+            <>
+              Email address (used as username)
+              <input
+                type="email"
+                name="email"
+                autoComplete="off"
+                maxLength={254}
+                required
+                disabled={isPending}
+                className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
+              />
+            </>
+          ) : (
+            <>
+              Username
+              <input
+                type="text"
+                name="username"
+                autoComplete="off"
+                minLength={3}
+                maxLength={40}
+                required
+                disabled={isPending}
+                className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
+              />
+            </>
+          )}
         </label>
         <label className="text-xs font-medium text-slate-700">
           Account role
@@ -103,6 +125,7 @@ export function AccountManagement() {
             defaultValue=""
             required
             disabled={isPending}
+            onChange={(event) => setRole(event.target.value)}
             className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50"
           >
             <option value="" disabled>

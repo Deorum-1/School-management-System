@@ -5,16 +5,35 @@ import { z } from "zod";
 import { AuthorizationError, requireRole } from "@/lib/auth";
 import db from "@/lib/db";
 import { hashPassword } from "@/lib/password";
-import { LOGIN_ROLES, ROLE_LABELS } from "@/lib/permissions";
+import { ROLE_LABELS } from "@/lib/permissions";
+
+const accountCredentialsSchema = {
+  name: z.string().trim().min(2).max(120),
+  password: z.string().min(12).max(256),
+  confirmPassword: z.string().min(12).max(256),
+};
+const emailSchema = z.string().trim().email().max(254).transform((email) => email.toLowerCase());
+const usernameSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(40)
+  .regex(/^[a-zA-Z0-9._-]+$/, "Use letters, numbers, dots, underscores, or hyphens for the username.")
+  .transform((username) => username.toLowerCase());
 
 const createAccountSchema = z
-  .object({
-    name: z.string().trim().min(2).max(120),
-    email: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
-    role: z.enum(LOGIN_ROLES),
-    password: z.string().min(12).max(256),
-    confirmPassword: z.string().min(12).max(256),
-  })
+  .discriminatedUnion("role", [
+    z.object({
+      ...accountCredentialsSchema,
+      role: z.enum(["ADMIN", "TEACHER"]),
+      email: emailSchema,
+    }),
+    z.object({
+      ...accountCredentialsSchema,
+      role: z.enum(["STUDENT", "PARENT"]),
+      username: usernameSchema,
+    }),
+  ])
   .refine((account) => account.password === account.confirmPassword, {
     path: ["confirmPassword"],
     message: "Passwords do not match.",
@@ -50,17 +69,20 @@ export async function createAccountAction(input: unknown) {
     const account = await db.user.create({
       data: {
         name: parsed.data.name,
-        email: parsed.data.email,
         role: parsed.data.role,
+        username: "email" in parsed.data ? parsed.data.email : parsed.data.username,
+        email: "email" in parsed.data ? parsed.data.email : null,
         password: await hashPassword(parsed.data.password),
       },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, username: true, email: true, role: true },
     });
 
     return {
       success: true as const,
       account: {
         ...account,
+        username:
+          "email" in parsed.data ? parsed.data.email : parsed.data.username,
         roleLabel: ROLE_LABELS[parsed.data.role],
       },
     };
@@ -71,7 +93,7 @@ export async function createAccountAction(input: unknown) {
     ) {
       return {
         success: false as const,
-        error: "An account with this username already exists.",
+        error: "An account with this username or email already exists.",
       };
     }
 

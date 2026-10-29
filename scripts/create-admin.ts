@@ -38,7 +38,7 @@ async function main() {
   }
 
   const existingUser = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
+    where: { username: parsed.data.email },
     select: { id: true },
   });
   if (existingUser) {
@@ -51,6 +51,7 @@ async function main() {
   await prisma.user.create({
     data: {
       name: parsed.data.name,
+      username: parsed.data.email,
       email: parsed.data.email,
       role: "ADMIN",
       password: await hashPassword(password),

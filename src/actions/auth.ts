@@ -12,14 +12,14 @@ import {
 import { LOGIN_ROLES } from "@/lib/permissions";
 
 const credentialsSchema = z.object({
-  email: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
+  username: z.string().trim().min(1).max(254).transform((value) => value.toLowerCase()),
   password: z.string().min(1).max(256),
   role: z.enum(LOGIN_ROLES),
 });
 
 export async function loginAction(formData: FormData): Promise<void> {
   const parsed = credentialsSchema.safeParse({
-    email: formData.get("email"),
+    username: formData.get("username"),
     password: formData.get("password"),
     role: formData.get("role"),
   });
@@ -32,7 +32,7 @@ export async function loginAction(formData: FormData): Promise<void> {
 
   try {
     const user = await db.user.findUnique({
-      where: { email: parsed.data.email },
+      where: { username: parsed.data.username },
       select: { id: true, password: true, role: true },
     });
 

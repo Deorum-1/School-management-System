@@ -29,8 +29,7 @@ function isRole(value: string): value is Role {
     value === "ADMIN" ||
     value === "TEACHER" ||
     value === "PARENT" ||
-    value === "STUDENT" ||
-    value === "ACCOUNTANT"
+    value === "STUDENT"
   );
 }
 
@@ -69,6 +68,7 @@ export async function getSessionUser(): Promise<UserSession | null> {
         select: {
           id: true,
           name: true,
+          username: true,
           email: true,
           role: true,
           avatar: true,
@@ -91,7 +91,8 @@ export async function getSessionUser(): Promise<UserSession | null> {
   return {
     id: session.user.id,
     name: session.user.name,
-    email: session.user.email,
+    username: session.user.username ?? undefined,
+    email: session.user.email ?? undefined,
     role: session.user.role,
     avatar: session.user.avatar ?? undefined,
   };

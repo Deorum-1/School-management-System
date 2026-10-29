@@ -48,12 +48,13 @@ export function LoginForm({ error }: { error: string | null }) {
         </select>
       </label>
       <label className="block text-xs font-medium text-slate-700">
-        Username (email address)
+        Username
         <input
-          type="email"
-          name="email"
+          type="text"
+          name="username"
           autoComplete="username"
           maxLength={254}
+          minLength={1}
           required
           className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         />

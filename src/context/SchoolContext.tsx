@@ -184,8 +184,7 @@ export function SchoolProvider({
         const [studentResult, attendanceResult, applicantResult] =
           await Promise.all([
             user.role === "ADMIN" ||
-            user.role === "TEACHER" ||
-            user.role === "ACCOUNTANT"
+            user.role === "TEACHER"
               ? getStudentsAction()
               : Promise.resolve(null),
             user.role === "ADMIN" || user.role === "TEACHER"

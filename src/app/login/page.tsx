@@ -18,7 +18,7 @@ export default async function LoginPage({
     errorCode === "unavailable"
       ? "Sign-in is temporarily unavailable. Please try again."
       : errorCode === "invalid"
-        ? "Invalid email, password, or account role."
+        ? "Invalid username, password, or account role."
         : null;
 
   return (
