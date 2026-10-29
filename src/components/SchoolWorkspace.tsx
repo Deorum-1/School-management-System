@@ -25,6 +25,10 @@ import { useSchool } from "@/context/SchoolContext";
 import { NotificationToast } from "@/components/NotificationToast";
 import { StudentRecord } from "@/lib/initial-data";
 import { Role } from "@/lib/permissions";
+import {
+  NIGERIAN_CLASSES,
+  NIGERIAN_CLASS_GROUPS,
+} from "@/lib/school-classes";
 
 const navigation = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
@@ -410,9 +414,6 @@ function StudentsView({
 }) {
   const { students } = useSchool();
   const [classFilter, setClassFilter] = useState("All classes");
-  const classes = Array.from(
-    new Set(students.map((student) => student.className)),
-  );
   const filtered = students.filter((student) => {
     const text = `${student.firstName} ${student.lastName} ${student.admissionNo} ${student.className}`.toLowerCase();
     return (
@@ -449,8 +450,10 @@ function StudentsView({
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
             <option>All classes</option>
-            {classes.map((className) => (
-              <option key={className}>{className}</option>
+            {NIGERIAN_CLASSES.map((schoolClass) => (
+              <option key={schoolClass.code} value={schoolClass.name}>
+                {schoolClass.name}
+              </option>
             ))}
           </select>
         </div>
@@ -861,9 +864,6 @@ export function SchoolWorkspace() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showAddStudent, setShowAddStudent] = useState(false);
-  const classOptions = Array.from(
-    new Set(students.map((student) => student.className)),
-  );
   const activePage =
     navigation.find((item) => item.id === activeTab) ?? navigation[0];
   const pageTitles: Record<string, string> = {
@@ -1180,10 +1180,14 @@ export function SchoolWorkspace() {
                     <option value="" disabled>
                       Select a class
                     </option>
-                    {classOptions.map((className) => (
-                      <option key={className} value={className}>
-                        {className}
-                      </option>
+                    {NIGERIAN_CLASS_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.classes.map((schoolClass) => (
+                          <option key={schoolClass.code} value={schoolClass.name}>
+                            {schoolClass.name}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </label>

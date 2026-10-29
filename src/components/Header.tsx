@@ -225,7 +225,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                     <GraduationCap className="w-4 h-4 text-emerald-600" />
                     <div>
                       <div className="font-medium">Teacher</div>
-                      <div className="text-[10px] text-slate-500">Mr. David Adeleke (SS2 Physics)</div>
+                      <div className="text-[10px] text-slate-500">Mr. David Adeleke (SS 2 Physics)</div>
                     </div>
                   </div>
                   {currentRole === "TEACHER" && <span className="text-[10px] text-blue-600 font-bold">Active</span>}
@@ -257,7 +257,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                     <UserCheck className="w-4 h-4 text-indigo-600" />
                     <div>
                       <div className="font-medium">Student</div>
-                      <div className="text-[10px] text-slate-500">Tunde Balogun (Grade 11 - SS2)</div>
+                      <div className="text-[10px] text-slate-500">Tunde Balogun (SS 2)</div>
                     </div>
                   </div>
                   {currentRole === "STUDENT" && <span className="text-[10px] text-blue-600 font-bold">Active</span>}

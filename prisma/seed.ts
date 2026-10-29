@@ -1,68 +1,116 @@
 import { PrismaClient } from "@prisma/client";
 import { INITIAL_STUDENTS } from "../src/lib/initial-data";
+import { NIGERIAN_CLASSES } from "../src/lib/school-classes";
 
 const prisma = new PrismaClient();
 
-function getGradeLevel(className: string) {
-  const gradeMatch = /\bGrade\s+(\d+)\b/i.exec(className);
-  if (gradeMatch) return Number(gradeMatch[1]);
+function normalizeClassName(raw: string): string | null {
+  const text = raw.trim();
+  const nursery = /\b(?:nursery|nur|kg)\s*([1-3])\b/i.exec(text);
+  if (nursery) return `Nursery ${Number(nursery[1])}`;
 
-  const juniorSecondaryMatch = /\bJSS\s+(\d+)\b/i.exec(className);
-  if (juniorSecondaryMatch) return 6 + Number(juniorSecondaryMatch[1]);
+  const primary = /\b(?:primary|pry|basic)\s*([1-6])\b/i.exec(text);
+  if (primary) return `Primary ${Number(primary[1])}`;
 
-  throw new Error(`Could not determine grade level for class "${className}"`);
+  const juniorSecondary = /\b(?:jss|junior secondary)\s*([1-3])\b/i.exec(text);
+  if (juniorSecondary) return `JSS ${Number(juniorSecondary[1])}`;
+
+  const seniorSecondary = /\b(?:sss|ss|senior secondary)\s*([1-3])\b/i.exec(text);
+  if (seniorSecondary) return `SS ${Number(seniorSecondary[1])}`;
+
+  const grade = /\bgrade\s*(\d{1,2})\b/i.exec(text);
+  if (grade) {
+    const level = Number(grade[1]);
+    if (level >= 1 && level <= 6) return `Primary ${level}`;
+    if (level >= 7 && level <= 9) return `JSS ${level - 6}`;
+    if (level >= 10 && level <= 12) return `SS ${level - 9}`;
+  }
+
+  return null;
 }
 
-function getClassCode(className: string) {
-  return className
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+async function seedClasses() {
+  const byName = new Map<string, string>();
+
+  for (const schoolClass of NIGERIAN_CLASSES) {
+    const record = await prisma.class.upsert({
+      where: { code: schoolClass.code },
+      update: {
+        name: schoolClass.name,
+        gradeLevel: schoolClass.gradeLevel,
+      },
+      create: schoolClass,
+    });
+    byName.set(record.name, record.id);
+  }
+
+  return byName;
+}
+
+async function normalizeExistingStudentClasses(classIds: Map<string, string>) {
+  const existingClasses = await prisma.class.findMany({
+    select: { id: true, name: true },
+  });
+  let studentsUpdated = 0;
+
+  for (const existingClass of existingClasses) {
+    const canonicalName = normalizeClassName(existingClass.name);
+    const canonicalId = canonicalName
+      ? classIds.get(canonicalName)
+      : undefined;
+
+    if (!canonicalId || canonicalId === existingClass.id) continue;
+
+    const result = await prisma.student.updateMany({
+      where: { classId: existingClass.id },
+      data: { classId: canonicalId },
+    });
+    studentsUpdated += result.count;
+  }
+
+  return studentsUpdated;
 }
 
 async function seed() {
+  const classIds = await seedClasses();
+  const normalizedStudents = await normalizeExistingStudentClasses(classIds);
+
   for (const student of INITIAL_STUDENTS) {
-    const classCode = getClassCode(student.className);
-    const schoolClass = await prisma.class.upsert({
-      where: { code: classCode },
-      update: {
-        name: student.className,
-        gradeLevel: getGradeLevel(student.className),
-      },
-      create: {
-        id: student.classId,
-        name: student.className,
-        code: classCode,
-        gradeLevel: getGradeLevel(student.className),
-      },
-    });
+    const className = normalizeClassName(student.className);
+    if (!className) {
+      throw new Error(
+        `Student ${student.admissionNo} has unrecognized class "${student.className}". ` +
+          "Use Nursery 1-3, Primary 1-6, JSS 1-3, or SS 1-3.",
+      );
+    }
+
+    const classId = classIds.get(className);
+
+    if (!classId) {
+      throw new Error(
+        `Student ${student.admissionNo} maps to missing class "${className}".`,
+      );
+    }
+
+    const studentData = {
+      firstName: student.firstName,
+      lastName: student.lastName,
+      gender: student.gender,
+      dob: new Date(`${student.dob}T12:00:00.000Z`),
+      bloodGroup: student.bloodGroup || null,
+      photoUrl: student.photoUrl || null,
+      address: student.address || null,
+      house: student.house,
+      classId,
+    };
 
     await prisma.student.upsert({
       where: { admissionNo: student.admissionNo },
-      update: {
-        firstName: student.firstName,
-        lastName: student.lastName,
-        gender: student.gender,
-        dob: new Date(`${student.dob}T12:00:00.000Z`),
-        bloodGroup: student.bloodGroup || null,
-        photoUrl: student.photoUrl || null,
-        address: student.address || null,
-        house: student.house,
-        classId: schoolClass.id,
-      },
+      update: studentData,
       create: {
         id: student.id,
         admissionNo: student.admissionNo,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        gender: student.gender,
-        dob: new Date(`${student.dob}T12:00:00.000Z`),
-        bloodGroup: student.bloodGroup || null,
-        photoUrl: student.photoUrl || null,
-        address: student.address || null,
-        house: student.house,
-        classId: schoolClass.id,
+        ...studentData,
       },
     });
 
@@ -85,7 +133,10 @@ async function seed() {
     });
   }
 
-  console.info(`Seeded ${INITIAL_STUDENTS.length} demo students and guardians.`);
+  console.info(
+    `Seeded ${NIGERIAN_CLASSES.length} Nigerian school classes and ${INITIAL_STUDENTS.length} demo students. ` +
+      `Normalized ${normalizedStudents} existing student class assignments.`,
+  );
 }
 
 seed()

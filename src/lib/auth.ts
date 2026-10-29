@@ -14,7 +14,7 @@ export const DEMO_USERS: Record<Role, UserSession> = {
     email: "david.adeleke@apexacademics.edu",
     role: "TEACHER",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    classAssigned: "Grade 11 Science (SS2 Gold)",
+    classAssigned: "SS 2",
   },
   PARENT: {
     id: "usr_parent_01",

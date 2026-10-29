@@ -130,7 +130,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       senderName: "Mr. David Adeleke",
       senderRole: "Senior Physics Master",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-      channel: "Grade 11 Science Parents",
+      channel: "SS 2 Science Parents",
       content:
         "Good morning esteemed parents. Please be advised that the STEM Robotics Project submissions and Physics laboratory practicals conclude this Thursday at 3:00 PM.",
       timestamp: "08:15 AM",
@@ -140,7 +140,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       senderName: "Chief Adebayo Balogun",
       senderRole: "Parent (Tunde & Sarah Balogun)",
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-      channel: "Grade 11 Science Parents",
+      channel: "SS 2 Science Parents",
       content:
         "Thank you Mr. Adeleke. Tunde mentioned the solar prototype trials yesterday. We appreciate the extra coaching hours provided by the physics department.",
       timestamp: "08:42 AM",
@@ -150,7 +150,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       senderName: "Dr. Kenneth Eze",
       senderRole: "Parent (Chioma Eze)",
       avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-      channel: "Grade 11 Science Parents",
+      channel: "SS 2 Science Parents",
       content:
         "Chioma also completed her research summary on electromagnetism. We look forward to the upcoming Science Olympiad awards ceremony.",
       timestamp: "09:05 AM",

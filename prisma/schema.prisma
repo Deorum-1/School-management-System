@@ -24,9 +24,9 @@ model User {
 
 model Class {
   id           String          @id @default(cuid())
-  name         String          // e.g. "JSS 1A", "SS 2 Gold", "Grade 10 Science"
+  name         String          // Nigerian stages: Nursery, Primary, JSS, and SS
   code         String          @unique
-  gradeLevel   Int             // 1 to 12
+  gradeLevel   Int             // 1-15: Nursery, Primary, JSS, then SS
   capacity     Int             @default(35)
   classTeacher String?
   students     Student[]
