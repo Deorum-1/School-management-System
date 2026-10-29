@@ -1,5 +1,22 @@
 export type Role = "ADMIN" | "TEACHER" | "PARENT" | "STUDENT" | "ACCOUNTANT";
 
+export const PUBLIC_SIGNUP_ROLES = [
+  "TEACHER",
+  "STUDENT",
+  "PARENT",
+  "ACCOUNTANT",
+] as const;
+
+export const LOGIN_ROLES = ["ADMIN", ...PUBLIC_SIGNUP_ROLES] as const;
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Administrator",
+  TEACHER: "Teacher",
+  STUDENT: "Student",
+  PARENT: "Parent",
+  ACCOUNTANT: "Accountant",
+};
+
 export interface UserSession {
   id: string;
   name: string;

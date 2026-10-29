@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { loginAction } from "@/actions/auth";
+import { LOGIN_ROLES, ROLE_LABELS } from "@/lib/permissions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -29,6 +30,24 @@ export function LoginForm({ error }: { error: string | null }) {
         </p>
       )}
       <label className="block text-xs font-medium text-slate-700">
+        Sign in as
+        <select
+          name="role"
+          defaultValue=""
+          required
+          className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="" disabled>
+            Choose your role
+          </option>
+          {LOGIN_ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-xs font-medium text-slate-700">
         Email address
         <input
           type="email"
@@ -51,6 +70,15 @@ export function LoginForm({ error }: { error: string | null }) {
         />
       </label>
       <SubmitButton />
+      <p className="mt-5 text-center text-sm text-slate-600">
+        Need an account?{" "}
+        <a
+          href="/signup"
+          className="font-semibold text-blue-700 hover:text-blue-800"
+        >
+          Sign up
+        </a>
+      </p>
     </form>
   );
 }
