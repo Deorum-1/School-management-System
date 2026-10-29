@@ -60,3 +60,19 @@ export async function verifyPassword(
   const actualKey = await deriveKey(password, salt);
   return timingSafeEqual(actualKey, expectedKey);
 }
+
+export function verifyLegacyPassword(
+  password: string,
+  storedPassword: string,
+): boolean {
+  if (!storedPassword || storedPassword.startsWith("scrypt-v1$")) {
+    return false;
+  }
+
+  const passwordBytes = Buffer.from(password, "utf8");
+  const storedPasswordBytes = Buffer.from(storedPassword, "utf8");
+  return (
+    passwordBytes.length === storedPasswordBytes.length &&
+    timingSafeEqual(passwordBytes, storedPasswordBytes)
+  );
+}
