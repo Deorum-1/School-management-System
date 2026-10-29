@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ApplicantRecord } from "@/lib/initial-data";
+import { meetsAdmissionRequirement } from "@/lib/admissions";
 import { NIGERIAN_CLASSES } from "@/lib/school-classes";
 import db from "@/lib/db";
 
@@ -102,6 +103,12 @@ export async function admitApplicantAction(input: unknown) {
 
       if (!applicant) {
         return { error: "This admission application could not be found." };
+      }
+
+      if (!meetsAdmissionRequirement(applicant.entranceScore)) {
+        return {
+          error: "Admission requires an entrance exam score above 70%.",
+        };
       }
 
       if (applicant.status === "ADMITTED") {

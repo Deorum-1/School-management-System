@@ -29,6 +29,7 @@ import {
   NIGERIAN_CLASSES,
   NIGERIAN_CLASS_GROUPS,
 } from "@/lib/school-classes";
+import { meetsAdmissionRequirement } from "@/lib/admissions";
 
 const navigation = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard },
@@ -826,51 +827,68 @@ function AdmissionsView() {
           />
         </div>
         <div className="divide-y divide-slate-100">
-          {applicants.map((applicant) => (
-            <div
-              key={applicant.id}
-              className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"
-            >
-              <div className="flex items-center gap-3">
-                <StudentAvatar
-                  firstName={applicant.firstName}
-                  lastName={applicant.lastName}
-                  color="violet"
-                />
-                <div>
-                  <p className="text-xs font-semibold text-slate-800">
-                    {applicant.firstName} {applicant.lastName}
-                  </p>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    {applicant.appNo} · Applying for {applicant.intendedClass}
-                  </p>
+          {applicants.map((applicant) => {
+            const meetsScoreRequirement = meetsAdmissionRequirement(
+              applicant.entranceScore,
+            );
+
+            return (
+              <div
+                key={applicant.id}
+                className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"
+              >
+                <div className="flex items-center gap-3">
+                  <StudentAvatar
+                    firstName={applicant.firstName}
+                    lastName={applicant.lastName}
+                    color="violet"
+                  />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800">
+                      {applicant.firstName} {applicant.lastName}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {applicant.appNo} · Applying for {applicant.intendedClass}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`hidden text-[10px] sm:inline ${
+                      meetsScoreRequirement
+                        ? "text-slate-500"
+                        : "font-medium text-rose-600"
+                    }`}
+                  >
+                    {applicant.entranceScore !== undefined
+                      ? `Entrance score: ${applicant.entranceScore}%`
+                      : "Entrance score pending"}
+                  </span>
+                  <StatusPill status={applicant.status} />
+                  {applicant.status !== "ADMITTED" &&
+                    applicant.status !== "REJECTED" && (
+                      <button
+                        onClick={() => {
+                          setSelectedApplicant(applicant);
+                          setDateOfBirth("");
+                        }}
+                        disabled={!meetsScoreRequirement}
+                        title={
+                          meetsScoreRequirement
+                            ? undefined
+                            : "Admission requires an entrance exam score above 70%."
+                        }
+                        className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:hover:bg-slate-200"
+                      >
+                        {meetsScoreRequirement
+                          ? "Admit student"
+                          : "Requires >70%"}
+                      </button>
+                    )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {applicant.entranceScore !== undefined && (
-                  <span className="hidden text-[10px] text-slate-500 sm:inline">
-                    Entrance score:{" "}
-                    <strong className="text-slate-700">
-                      {applicant.entranceScore}%
-                    </strong>
-                  </span>
-                )}
-                <StatusPill status={applicant.status} />
-                {applicant.status !== "ADMITTED" &&
-                  applicant.status !== "REJECTED" && (
-                  <button
-                    onClick={() => {
-                      setSelectedApplicant(applicant);
-                      setDateOfBirth("");
-                    }}
-                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700"
-                  >
-                    Admit student
-                  </button>
-                  )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {!applicants.length && (
             <p className="px-5 py-10 text-center text-xs text-slate-500">
               No admission applications found. Run the database seed to load demo applications.
@@ -905,7 +923,11 @@ function AdmissionsView() {
               <span className="font-semibold text-slate-700">
                 {selectedApplicant.intendedClass}
               </span>{" "}
-              and save the application as admitted.
+              and save the application as admitted. The entrance exam score of{" "}
+              <span className="font-semibold text-slate-700">
+                {selectedApplicant.entranceScore}%
+              </span>{" "}
+              meets the requirement of above 70%.
             </p>
             <form onSubmit={submitAdmission} className="mt-5 space-y-4">
               <label className="block text-[11px] font-medium text-slate-600">
