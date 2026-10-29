@@ -32,11 +32,12 @@ The current interface uses seeded demo data held in client state. Changes made i
 
 4. Open [http://localhost:3000](http://localhost:3000).
 
-To generate the Prisma client and apply the SQLite schema, run:
+To generate the Prisma client and apply database migrations, run:
 
 ```bash
-npx prisma generate
-npx prisma migrate dev --name init
+npm run db:generate
+npm run db:migrate
+npm run db:seed
 ```
 
 `npm run build` and `npm run lint` currently report pre-existing lint errors in files outside the new workspace UI. Run `npx tsc --noEmit` to check TypeScript types.
