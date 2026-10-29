@@ -1,0 +1,376 @@
+// Prisma schema for Apex Academics School Management System (SMS)
+// Based on template specification (SQLite compatible)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("ADMIN") // ADMIN, TEACHER, PARENT, STUDENT, ACCOUNTANT
+  password  String
+  avatar    String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Class {
+  id           String          @id @default(cuid())
+  name         String          // e.g. "JSS 1A", "SS 2 Gold", "Grade 10 Science"
+  code         String          @unique
+  gradeLevel   Int             // 1 to 12
+  capacity     Int             @default(35)
+  classTeacher String?
+  students     Student[]
+  timetables   TimetableSlot[]
+  lessonNotes  LessonNote[]
+}
+
+model Student {
+  id            String                 @id @default(cuid())
+  admissionNo   String                 @unique
+  firstName     String
+  lastName      String
+  otherNames    String?
+  gender        String                 // MALE, FEMALE
+  dob           DateTime
+  bloodGroup    String?
+  photoUrl      String?
+  address       String?
+  house         String?                // "Blue Phoenix", "Red Dragon", etc.
+  classId       String
+  class         Class                  @relation(fields: [classId], references: [id])
+  guardians     Guardian[]
+  attendance    Attendance[]
+  results       Result[]
+  invoices      Invoice[]
+  cbtAttempts   CBTAttempt[]
+  submissions   AssignmentSubmission[]
+  discipline    DisciplineIncident[]
+  behavioural   BehaviouralRating[]
+  kidMonitor    KidMonitorLog[]
+  housePoints   HousePointAward[]
+  createdAt     DateTime               @default(now())
+}
+
+model Staff {
+  id            String          @id @default(cuid())
+  staffNumber   String          @unique
+  firstName     String
+  lastName      String
+  email         String          @unique
+  phone         String
+  role          String          @default("TEACHER") // TEACHER, ADMIN, NURSE, BURSER
+  department    String
+  designation   String
+  salaryBase    Float
+  allowances    Float           @default(0)
+  deductions    Float           @default(0)
+  qualification String
+  joinedDate    DateTime
+  payroll       PayrollRecord[]
+  lessonNotes   LessonNote[]
+}
+
+model Guardian {
+  id           String   @id @default(cuid())
+  fullName     String
+  relationship String   // "Father", "Mother", "Sponsor"
+  phone        String
+  email        String
+  occupation   String?
+  isEmergency  Boolean  @default(false)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime
+  status    String   @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
+  remarks   String?
+  timeIn    String?  // e.g. "07:45 AM"
+  @@unique([studentId, date])
+}
+
+model Subject {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String        // "Mathematics", "English Language"
+  department  String
+  results     Result[]
+  lessonNotes LessonNote[]
+  cbtExams    CBTExam[]
+  assignments Assignment[]
+}
+
+model Term {
+  id        String    @id @default(cuid())
+  name      String    // "1st Term", "2nd Term", "3rd Term"
+  session   String    // "2026/2027"
+  isCurrent Boolean   @default(false)
+  startDate DateTime
+  endDate   DateTime
+  results   Result[]
+  invoices  Invoice[]
+}
+
+model Result {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  termId    String
+  term      Term     @relation(fields: [termId], references: [id])
+  ca1       Float    @default(0) // 15
+  ca2       Float    @default(0) // 15
+  ca3       Float    @default(0) // 10
+  exam      Float    @default(0) // 60
+  total     Float    @default(0) // 100
+  grade     String   // A1, B2, C4, F9
+  remark    String?
+  updatedAt DateTime @updatedAt
+  @@unique([studentId, subjectId, termId])
+}
+
+model Invoice {
+  id         String    @id @default(cuid())
+  invoiceNo  String    @unique
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  termId     String
+  term       Term      @relation(fields: [termId], references: [id])
+  title      String    // "2026/2027 1st Term Tuition & Materials"
+  amount     Float
+  amountPaid Float     @default(0)
+  dueDate    DateTime
+  status     String    @default("PENDING") // PENDING, PAID, OVERDUE, PARTIAL
+  payments   Payment[]
+  createdAt  DateTime  @default(now())
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount         Float
+  channel        String   // "PAYSTACK_CARD", "TRANSFER", "BANK_BRANCH"
+  reference      String   @unique
+  transactionRef String?
+  paidAt         DateTime @default(now())
+  verified       Boolean  @default(true)
+}
+
+model AdmissionApplicant {
+  id            String   @id @default(cuid())
+  appNo         String   @unique
+  firstName     String
+  lastName      String
+  gender        String   // MALE, FEMALE
+  intendedClass String
+  parentName    String
+  parentPhone   String
+  parentEmail   String
+  entranceScore Float?
+  status        String   @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, EXAM_SCHEDULED, INTERVIEW, ADMITTED, REJECTED
+  createdAt     DateTime @default(now())
+}
+
+model KidMonitorLog {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date         DateTime @default(now())
+  checkInTime  String?
+  checkOutTime String?
+  gatekeeper   String?
+  busRoute     String?  // "Route 4 - Island Express"
+  pickupPerson String?
+  pickupOtp    String?
+  status       String   @default("SAFE_INSIDE") // "SAFE_INSIDE", "IN_TRANSIT", "CHECKED_OUT"
+}
+
+model PayrollRecord {
+  id          String    @id @default(cuid())
+  staffId     String
+  staff       Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month       String    // "October 2026"
+  baseSalary  Float
+  allowance   Float
+  deductions  Float
+  netPay      Float
+  paymentDate DateTime?
+  status      String    @default("PENDING") // "PAID", "PROCESSING", "PENDING"
+  paymentRef  String?
+}
+
+model AccountingTransaction {
+  id          String   @id @default(cuid())
+  type        String   // "INCOME" or "EXPENSE"
+  category    String   // "Tuition", "Salaries", "Utilities", "Laboratory", "Transport"
+  amount      Float
+  description String
+  date        DateTime @default(now())
+  reference   String
+  recordedBy  String
+}
+
+model TimetableSlot {
+  id          String @id @default(cuid())
+  classId     String
+  class       Class  @relation(fields: [classId], references: [id])
+  dayOfWeek   String // "MONDAY", "TUESDAY", ...
+  period      Int    // 1 to 8
+  subjectName String
+  teacherName String
+  room        String
+}
+
+model LessonNote {
+  id          String   @id @default(cuid())
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id])
+  weekNumber  Int
+  topic       String
+  objectives  String
+  materials   String
+  content     String
+  status      String   @default("SUBMITTED") // "APPROVED", "SUBMITTED", "DRAFT"
+  approvedBy  String?
+  createdAt   DateTime @default(now())
+}
+
+model CBTExam {
+  id           String        @id @default(cuid())
+  title        String
+  subjectId    String
+  subject      Subject       @relation(fields: [subjectId], references: [id])
+  durationMins Int           @default(30)
+  totalMarks   Float         @default(100)
+  questions    CBTQuestion[]
+  attempts     CBTAttempt[]
+  active       Boolean       @default(true)
+}
+
+model CBTQuestion {
+  id        String  @id @default(cuid())
+  examId    String
+  exam      CBTExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question  String
+  optionA   String
+  optionB   String
+  optionC   String
+  optionD   String
+  answerKey String  // "A", "B", "C", "D"
+  points    Float   @default(5)
+}
+
+model CBTAttempt {
+  id          String   @id @default(cuid())
+  examId      String
+  exam        CBTExam  @relation(fields: [examId], references: [id])
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score       Float
+  total       Float
+  submittedAt DateTime @default(now())
+}
+
+model Assignment {
+  id          String                 @id @default(cuid())
+  title       String
+  subjectId   String
+  subject     Subject                @relation(fields: [subjectId], references: [id])
+  className   String
+  description String
+  dueDate     DateTime
+  maxScore    Float                  @default(20)
+  submissions AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  content      String
+  submittedAt  DateTime   @default(now())
+  score        Float?
+  feedback     String?
+}
+
+model HousePointAward {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  house     String
+  points    Int
+  reason    String
+  awardedBy String
+  createdAt DateTime @default(now())
+}
+
+model DisciplineIncident {
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  infraction     String
+  incidentDate   DateTime
+  reportedBy     String
+  sanction       String   // "WARNING_LETTER", "DETENTION", "COUNSELING", "SUSPENSION"
+  status         String   @default("ACTIVE") // "RESOLVED", "SERVING", "PENDING_HEARING"
+  parentNotified Boolean  @default(true)
+}
+
+model BehaviouralRating {
+  id            String  @id @default(cuid())
+  studentId     String
+  student       Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term          String
+  punctuality   Int     // 1 to 5
+  neatness      Int
+  politeness    Int
+  honesty       Int
+  leadership    Int
+  sportsmanship Int
+  teacherRemark String?
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  category    String   // "Science Lab", "IT Equipment", "Textbooks", "Sports", "Class Furniture"
+  quantity    Int
+  minStock    Int      @default(5)
+  condition   String   // "Good", "Fair", "Needs Repair"
+  location    String
+  lastUpdated DateTime @default(now())
+}
+
+model BroadcastMessage {
+  id             String   @id @default(cuid())
+  title          String
+  body           String
+  channel        String   // "SMS", "EMAIL", "SMS_AND_EMAIL"
+  recipientGroup String   // "ALL_PARENTS", "SS2_PARENTS", "STAFF"
+  sentAt         DateTime @default(now())
+  deliveredCount Int
+  status         String   @default("SENT") // "SENT", "SCHEDULED"
+}
