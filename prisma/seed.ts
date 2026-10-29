@@ -1,5 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { INITIAL_STUDENTS } from "../src/lib/initial-data";
+import {
+  INITIAL_APPLICANTS,
+  INITIAL_STUDENTS,
+} from "../src/lib/initial-data";
 import { NIGERIAN_CLASSES } from "../src/lib/school-classes";
 
 const prisma = new PrismaClient();
@@ -104,17 +107,17 @@ async function seed() {
       classId,
     };
 
-    await prisma.student.upsert({
+    const savedStudent = await prisma.student.upsert({
       where: { admissionNo: student.admissionNo },
       update: studentData,
       create: {
-        id: student.id,
         admissionNo: student.admissionNo,
         ...studentData,
       },
+      select: { id: true },
     });
 
-    const guardianId = `guardian_${student.id}`;
+    const guardianId = `guardian_${savedStudent.id}`;
     await prisma.guardian.upsert({
       where: { id: guardianId },
       update: {
@@ -128,13 +131,50 @@ async function seed() {
         relationship: "Parent/Guardian",
         phone: student.parentPhone,
         email: student.parentEmail,
-        studentId: student.id,
+        studentId: savedStudent.id,
+      },
+    });
+  }
+
+  for (const applicant of INITIAL_APPLICANTS) {
+    const intendedClass = normalizeClassName(applicant.intendedClass);
+    if (!intendedClass || !classIds.has(intendedClass)) {
+      throw new Error(
+        `Applicant ${applicant.appNo} has an unrecognized intended class "${applicant.intendedClass}".`,
+      );
+    }
+
+    await prisma.admissionApplicant.upsert({
+      where: { appNo: applicant.appNo },
+      update: {
+        firstName: applicant.firstName,
+        lastName: applicant.lastName,
+        gender: applicant.gender,
+        intendedClass,
+        parentName: applicant.parentName,
+        parentPhone: applicant.parentPhone,
+        parentEmail: applicant.parentEmail,
+        entranceScore: applicant.entranceScore ?? null,
+      },
+      create: {
+        id: applicant.id,
+        appNo: applicant.appNo,
+        firstName: applicant.firstName,
+        lastName: applicant.lastName,
+        gender: applicant.gender,
+        intendedClass,
+        parentName: applicant.parentName,
+        parentPhone: applicant.parentPhone,
+        parentEmail: applicant.parentEmail,
+        entranceScore: applicant.entranceScore ?? null,
+        status: applicant.status,
+        createdAt: new Date(`${applicant.appliedDate}T12:00:00.000Z`),
       },
     });
   }
 
   console.info(
-    `Seeded ${NIGERIAN_CLASSES.length} Nigerian school classes and ${INITIAL_STUDENTS.length} demo students. ` +
+    `Seeded ${NIGERIAN_CLASSES.length} Nigerian school classes, ${INITIAL_STUDENTS.length} demo students, and ${INITIAL_APPLICANTS.length} applicants. ` +
       `Normalized ${normalizedStudents} existing student class assignments.`,
   );
 }

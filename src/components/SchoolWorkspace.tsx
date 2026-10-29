@@ -795,59 +795,153 @@ function StaffView() {
 
 function AdmissionsView() {
   const { applicants, admitApplicant } = useSchool();
+  const [selectedApplicant, setSelectedApplicant] =
+    useState<(typeof applicants)[number] | null>(null);
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [isAdmitting, setIsAdmitting] = useState(false);
+
+  const submitAdmission = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedApplicant || isAdmitting) return;
+
+    setIsAdmitting(true);
+    try {
+      const admitted = await admitApplicant(selectedApplicant.id, dateOfBirth);
+      if (admitted) {
+        setSelectedApplicant(null);
+        setDateOfBirth("");
+      }
+    } finally {
+      setIsAdmitting(false);
+    }
+  };
+
   return (
-    <Surface className="overflow-hidden">
-      <div className="p-5 sm:p-6">
-        <SectionHeading
-          title="Admissions pipeline"
-          subtitle="Review applications and move candidates into the student directory."
-        />
-      </div>
-      <div className="divide-y divide-slate-100">
-        {applicants.map((applicant) => (
-          <div
-            key={applicant.id}
-            className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"
-          >
-            <div className="flex items-center gap-3">
-              <StudentAvatar
-                firstName={applicant.firstName}
-                lastName={applicant.lastName}
-                color="violet"
-              />
-              <div>
-                <p className="text-xs font-semibold text-slate-800">
-                  {applicant.firstName} {applicant.lastName}
-                </p>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  {applicant.appNo} · Applying for {applicant.intendedClass}
-                </p>
+    <>
+      <Surface className="overflow-hidden">
+        <div className="p-5 sm:p-6">
+          <SectionHeading
+            title="Admissions pipeline"
+            subtitle="Review applications and move candidates into the student directory."
+          />
+        </div>
+        <div className="divide-y divide-slate-100">
+          {applicants.map((applicant) => (
+            <div
+              key={applicant.id}
+              className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"
+            >
+              <div className="flex items-center gap-3">
+                <StudentAvatar
+                  firstName={applicant.firstName}
+                  lastName={applicant.lastName}
+                  color="violet"
+                />
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">
+                    {applicant.firstName} {applicant.lastName}
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    {applicant.appNo} · Applying for {applicant.intendedClass}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {applicant.entranceScore !== undefined && (
-                <span className="hidden text-[10px] text-slate-500 sm:inline">
-                  Entrance score:{" "}
-                  <strong className="text-slate-700">
-                    {applicant.entranceScore}%
-                  </strong>
-                </span>
-              )}
-              <StatusPill status={applicant.status} />
-              {applicant.status !== "ADMITTED" &&
-                applicant.status !== "REJECTED" && (
+              <div className="flex items-center gap-3">
+                {applicant.entranceScore !== undefined && (
+                  <span className="hidden text-[10px] text-slate-500 sm:inline">
+                    Entrance score:{" "}
+                    <strong className="text-slate-700">
+                      {applicant.entranceScore}%
+                    </strong>
+                  </span>
+                )}
+                <StatusPill status={applicant.status} />
+                {applicant.status !== "ADMITTED" &&
+                  applicant.status !== "REJECTED" && (
                   <button
-                    onClick={() => admitApplicant(applicant.id)}
+                    onClick={() => {
+                      setSelectedApplicant(applicant);
+                      setDateOfBirth("");
+                    }}
                     className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700"
                   >
                     Admit student
                   </button>
-                )}
+                  )}
+              </div>
             </div>
+          ))}
+          {!applicants.length && (
+            <p className="px-5 py-10 text-center text-xs text-slate-500">
+              No admission applications found. Run the database seed to load demo applications.
+            </p>
+          )}
+        </div>
+      </Surface>
+
+      {selectedApplicant && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isAdmitting) {
+              setSelectedApplicant(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admission-confirmation-title"
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl sm:p-7"
+          >
+            <h2
+              id="admission-confirmation-title"
+              className="text-base font-bold text-slate-900"
+            >
+              Admit {selectedApplicant.firstName} {selectedApplicant.lastName}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              This will create a student record in{" "}
+              <span className="font-semibold text-slate-700">
+                {selectedApplicant.intendedClass}
+              </span>{" "}
+              and save the application as admitted.
+            </p>
+            <form onSubmit={submitAdmission} className="mt-5 space-y-4">
+              <label className="block text-[11px] font-medium text-slate-600">
+                Student date of birth
+                <input
+                  autoFocus
+                  type="date"
+                  required
+                  max={new Date().toISOString().slice(0, 10)}
+                  value={dateOfBirth}
+                  onChange={(event) => setDateOfBirth(event.target.value)}
+                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  disabled={isAdmitting}
+                  onClick={() => setSelectedApplicant(null)}
+                  className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdmitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isAdmitting ? "Saving admission..." : "Confirm admission"}
+                </button>
+              </div>
+            </form>
           </div>
-        ))}
-      </div>
-    </Surface>
+        </div>
+      )}
+    </>
   );
 }
 

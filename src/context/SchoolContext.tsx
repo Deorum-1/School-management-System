@@ -16,6 +16,10 @@ import {
   markAttendanceAction,
 } from "@/actions/attendance";
 import {
+  admitApplicantAction,
+  getAdmissionApplicantsAction,
+} from "@/actions/admissions";
+import {
   INITIAL_STUDENTS,
   INITIAL_STAFF,
   INITIAL_GRADES,
@@ -87,7 +91,7 @@ interface SchoolContextType {
   awardHousePoints: (house: string, points: number, reason: string) => void;
   addLessonNote: (note: Omit<LessonNoteRecord, "id" | "date" | "status">) => void;
   approveLessonNote: (id: string) => void;
-  admitApplicant: (id: string) => void;
+  admitApplicant: (id: string, dateOfBirth: string) => Promise<boolean>;
   addDisciplineIncident: (incident: { studentId: string; infraction: string; sanction: string }) => void;
   sendChatMessage: (content: string, channel: string) => void;
   sendBroadcast: (title: string, message: string, channel: string, target: string) => void;
@@ -170,9 +174,11 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
 
     const loadPersistedData = async () => {
       try {
-        const [studentResult, attendanceResult] = await Promise.all([
+        const [studentResult, attendanceResult, applicantResult] =
+          await Promise.all([
           getStudentsAction(),
           getTodayAttendanceAction(),
+          getAdmissionApplicantsAction(),
         ]);
         if (!active) return;
 
@@ -186,6 +192,12 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
           setAttendanceStatuses(attendanceResult.attendanceStatuses);
         } else {
           notify(attendanceResult.error, "error");
+        }
+
+        if (applicantResult.success) {
+          setApplicants(applicantResult.applicants);
+        } else {
+          notify(applicantResult.error, "error");
         }
       } catch (error: unknown) {
         console.error("Could not load persisted school data.", error);
@@ -221,7 +233,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!result.success) {
-        notify(result.error, "error");
+        notify(result.error || "Unable to admit applicant.", "error");
         return;
       }
 
@@ -344,34 +356,38 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     notify("Lesson Note approved by Head of Department.");
   };
 
-  const admitApplicant = (id: string) => {
-    const applicant = applicants.find((a) => a.id === id);
-    if (!applicant) return;
+  const admitApplicant = async (id: string, dateOfBirth: string) => {
+    try {
+      const result = await admitApplicantAction({
+        applicantId: id,
+        dateOfBirth,
+      });
 
-    setApplicants((prev) => prev.map((a) => (a.id === id ? { ...a, status: "ADMITTED" } : a)));
+      if (!result.success) {
+        notify(result.error || "Unable to admit applicant.", "error");
+        return false;
+      }
 
-    const newStudent: StudentRecord = {
-      id: `std_${Date.now()}`,
-      admissionNo: `APX/2027/${Math.floor(1000 + Math.random() * 9000)}`,
-      firstName: applicant.firstName,
-      lastName: applicant.lastName,
-      gender: applicant.gender,
-      className: applicant.intendedClass,
-      classId: "cls_new",
-      house: "Blue Phoenix",
-      dob: "2013-05-10",
-      bloodGroup: "O+",
-      address: "Victoria Island, Lagos",
-      photoUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80",
-      parentName: applicant.parentName,
-      parentPhone: applicant.parentPhone,
-      parentEmail: applicant.parentEmail,
-      status: "ACTIVE",
-      feesStatus: "PENDING",
-      feesDue: 350000,
-    };
-    setStudents((prev) => [newStudent, ...prev]);
-    notify(`Applicant ${applicant.firstName} ${applicant.lastName} admitted! Added to active student roster.`);
+      setApplicants((previous) =>
+        previous.map((applicant) =>
+          applicant.id === result.applicant.id
+            ? result.applicant
+            : applicant,
+        ),
+      );
+      setStudents((previous) => [
+        toStudentRecord(result.student),
+        ...previous.filter((student) => student.id !== result.student.id),
+      ]);
+      notify(
+        `${result.applicant.firstName} ${result.applicant.lastName} admitted and saved to the student directory.`,
+      );
+      return true;
+    } catch (error: unknown) {
+      console.error("Could not admit applicant.", error);
+      notify("Could not admit the applicant. Please try again.", "error");
+      return false;
+    }
   };
 
   const addDisciplineIncident = (data: { studentId: string; infraction: string; sanction: string }) => {

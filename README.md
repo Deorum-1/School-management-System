@@ -13,7 +13,7 @@ A school management workspace built with Next.js, TypeScript, Tailwind CSS, and 
 - Nigerian class structure: Nursery 1–3, Primary 1–6, JSS 1–3, and SS 1–3
 - Responsive navigation for desktop and mobile
 
-The student directory and daily attendance screens use Prisma server actions backed by SQLite, so those records persist across reloads. `npm run db:seed` safely seeds the demo classes, students, and guardians and can be run more than once. The other modules still use demo data held in client state.
+The student directory, daily attendance, and admissions screens use Prisma server actions backed by SQLite, so those records persist across reloads. Confirming an admission creates the student and guardian records and updates the applicant in one database transaction. `npm run db:seed` safely seeds the demo classes, students, guardians, and applicants and can be run more than once. The other modules still use demo data held in client state.
 
 Authentication and authorization are not implemented. The role selector is only a demo control, and the server actions are not access-controlled. Do not use this app with real student data or deploy it publicly until sign-in and server-side permission checks are in place.
 

@@ -623,7 +623,7 @@ export const INITIAL_APPLICANTS: ApplicantRecord[] = [
     parentName: "Mr. Obinna Anosike",
     parentPhone: "+234 803 111 4455",
     parentEmail: "obinna@anosikegroup.com",
-    status: "ADMITTED",
+    status: "INTERVIEW",
     entranceScore: 88.5,
     appliedDate: "2026-10-10",
   },
