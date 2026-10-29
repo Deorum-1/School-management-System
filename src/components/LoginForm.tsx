@@ -48,7 +48,7 @@ export function LoginForm({ error }: { error: string | null }) {
         </select>
       </label>
       <label className="block text-xs font-medium text-slate-700">
-        Email address
+        Username (email address)
         <input
           type="email"
           name="email"
@@ -70,15 +70,6 @@ export function LoginForm({ error }: { error: string | null }) {
         />
       </label>
       <SubmitButton />
-      <p className="mt-5 text-center text-sm text-slate-600">
-        Need an account?{" "}
-        <a
-          href="/signup"
-          className="font-semibold text-blue-700 hover:text-blue-800"
-        >
-          Sign up
-        </a>
-      </p>
     </form>
   );
 }

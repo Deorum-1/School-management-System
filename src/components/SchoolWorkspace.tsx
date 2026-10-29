@@ -19,11 +19,13 @@ import {
   Plus,
   Search,
   Users,
+  UserPlus,
   Wallet,
   X,
 } from "lucide-react";
 import { useSchool } from "@/context/SchoolContext";
 import { NotificationToast } from "@/components/NotificationToast";
+import { AccountManagement } from "@/components/AccountManagement";
 import type { StudentRecord } from "@/lib/initial-data";
 import { hasPermission } from "@/lib/permissions";
 import { logoutAction } from "@/actions/auth";
@@ -41,6 +43,7 @@ const navigation = [
   { id: "grading", label: "Results", icon: BookOpen, permission: "grades:read" },
   { id: "accounting", label: "Fees & finance", icon: Wallet, permission: "accounting:read" },
   { id: "admission", label: "Admissions", icon: CircleDollarSign, permission: "admission:read" },
+  { id: "accounts", label: "Accounts", icon: UserPlus, permission: "users:manage" },
 ];
 
 const currency = new Intl.NumberFormat("en-NG", {
@@ -1003,6 +1006,7 @@ export function SchoolWorkspace() {
     grading: "Results",
     accounting: "Fees & finance",
     admission: "Admissions",
+    accounts: "Accounts",
   };
 
   const activeStudentCount = students.filter(
@@ -1061,6 +1065,8 @@ export function SchoolWorkspace() {
         return <FinanceView />;
       case "admission":
         return <AdmissionsView />;
+      case "accounts":
+        return <AccountManagement />;
       default:
         return <Overview onNavigate={setActiveTab} />;
     }

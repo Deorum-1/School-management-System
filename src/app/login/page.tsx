@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string | string[]; registered?: string | string[] };
+  searchParams: { error?: string | string[] };
 }) {
   if (await getSessionUser()) {
     redirect("/");
@@ -20,9 +20,6 @@ export default async function LoginPage({
       : errorCode === "invalid"
         ? "Invalid email, password, or account role."
         : null;
-  const registered = Array.isArray(searchParams.registered)
-    ? searchParams.registered[0]
-    : searchParams.registered;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
@@ -44,14 +41,6 @@ export default async function LoginPage({
         <p className="mt-1 text-sm text-slate-500">
           Select your account role and enter your credentials to continue.
         </p>
-        {registered === "1" && (
-          <p
-            role="status"
-            className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700"
-          >
-            Your account was created. Sign in with the role you selected.
-          </p>
-        )}
         <LoginForm error={error} />
       </section>
     </main>

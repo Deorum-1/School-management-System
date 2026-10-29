@@ -112,6 +112,7 @@ const ACTIVE_TAB_IDS = new Set([
   "grading",
   "accounting",
   "admission",
+  "accounts",
 ]);
 
 export function SchoolProvider({
