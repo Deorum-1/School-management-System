@@ -1,6 +1,20 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import {
+  createStudentAction,
+  getStudentsAction,
+} from "@/actions/students";
+import {
+  getTodayAttendanceAction,
+  markAttendanceAction,
+} from "@/actions/attendance";
 import {
   INITIAL_STUDENTS,
   INITIAL_STAFF,
@@ -24,6 +38,23 @@ import {
 } from "@/lib/initial-data";
 import { Role } from "@/lib/permissions";
 import { DEMO_USERS } from "@/lib/auth";
+import { toStudentRecord } from "@/lib/student-mapping";
+
+type NewStudentInput = Pick<
+  StudentRecord,
+  | "firstName"
+  | "lastName"
+  | "gender"
+  | "className"
+  | "dob"
+  | "house"
+  | "bloodGroup"
+  | "address"
+  | "photoUrl"
+  | "parentName"
+  | "parentPhone"
+  | "parentEmail"
+>;
 
 interface SchoolContextType {
   currentRole: Role;
@@ -45,9 +76,12 @@ interface SchoolContextType {
   chatMessages: ChatMessageRecord[];
   isMobileSimulator: boolean;
   setIsMobileSimulator: (val: boolean) => void;
-  addStudent: (student: Omit<StudentRecord, "id" | "feesDue" | "feesStatus">) => void;
+  addStudent: (student: NewStudentInput) => Promise<void>;
   addStaff: (staff: Omit<StaffRecord, "id" | "status">) => void;
-  markAttendance: (studentId: string, status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED") => void;
+  markAttendance: (
+    studentId: string,
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED",
+  ) => Promise<void>;
   runPayroll: () => void;
   processPayment: (studentId: string, amount: number, reference: string) => void;
   awardHousePoints: (house: string, points: number, reason: string) => void;
@@ -60,6 +94,7 @@ interface SchoolContextType {
   restockInventory: (id: string, amount: number) => void;
   issueInventory: (id: string, amount: number) => void;
   activeNotification: string | null;
+  activeNotificationType: "success" | "error";
   dismissNotification: () => void;
 }
 
@@ -70,17 +105,20 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [isMobileSimulator, setIsMobileSimulator] = useState<boolean>(false);
   const [activeNotification, setActiveNotification] = useState<string | null>(null);
+  const [activeNotificationType, setActiveNotificationType] = useState<
+    "success" | "error"
+  >("success");
 
   const [students, setStudents] = useState<StudentRecord[]>(INITIAL_STUDENTS);
   const [attendanceStatuses, setAttendanceStatuses] = useState<
     Record<string, "PRESENT" | "ABSENT" | "LATE" | "EXCUSED">
   >({});
   const [staff, setStaff] = useState<StaffRecord[]>(INITIAL_STAFF);
-  const [grades, setGrades] = useState<GradeItem[]>(INITIAL_GRADES);
-  const [kidMonitor, setKidMonitor] = useState<KidMonitorLogRecord[]>(INITIAL_KID_MONITOR);
+  const [grades] = useState<GradeItem[]>(INITIAL_GRADES);
+  const [kidMonitor] = useState<KidMonitorLogRecord[]>(INITIAL_KID_MONITOR);
   const [transactions, setTransactions] = useState<AccountingTransactionRecord[]>(INITIAL_TRANSACTIONS);
   const [applicants, setApplicants] = useState<ApplicantRecord[]>(INITIAL_APPLICANTS);
-  const [announcements, setAnnouncements] = useState(INITIAL_ANNOUNCEMENTS);
+  const [announcements] = useState(INITIAL_ANNOUNCEMENTS);
   const [lessonNotes, setLessonNotes] = useState<LessonNoteRecord[]>(INITIAL_LESSON_NOTES);
   const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [discipline, setDiscipline] = useState(INITIAL_DISCIPLINE);
@@ -119,22 +157,83 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     },
   ]);
 
-  const notify = (msg: string) => {
+  const notify = useCallback((msg: string, type: "success" | "error" = "success") => {
+    setActiveNotificationType(type);
     setActiveNotification(msg);
     setTimeout(() => {
       setActiveNotification((prev) => (prev === msg ? null : prev));
     }, 4500);
-  };
+  }, []);
 
-  const addStudent = (data: Omit<StudentRecord, "id" | "feesDue" | "feesStatus">) => {
-    const newStudent: StudentRecord = {
-      ...data,
-      id: `std_${Date.now()}`,
-      feesDue: 350000,
-      feesStatus: "PENDING",
+  useEffect(() => {
+    let active = true;
+
+    const loadPersistedData = async () => {
+      try {
+        const [studentResult, attendanceResult] = await Promise.all([
+          getStudentsAction(),
+          getTodayAttendanceAction(),
+        ]);
+        if (!active) return;
+
+        if (studentResult.success) {
+          setStudents(studentResult.students.map(toStudentRecord));
+        } else {
+          notify(studentResult.error, "error");
+        }
+
+        if (attendanceResult.success) {
+          setAttendanceStatuses(attendanceResult.attendanceStatuses);
+        } else {
+          notify(attendanceResult.error, "error");
+        }
+      } catch (error: unknown) {
+        console.error("Could not load persisted school data.", error);
+        if (active) {
+          notify("Could not load school records. Please refresh to try again.", "error");
+        }
+      }
     };
-    setStudents((prev) => [newStudent, ...prev]);
-    notify(`New Student enrolled: ${newStudent.firstName} ${newStudent.lastName} (${newStudent.admissionNo})`);
+
+    void loadPersistedData();
+    return () => {
+      active = false;
+    };
+  }, [notify]);
+
+  const addStudent = async (
+    data: NewStudentInput,
+  ) => {
+    try {
+      const result = await createStudentAction({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        gender: data.gender,
+        className: data.className,
+        dob: data.dob,
+        parentName: data.parentName,
+        parentPhone: data.parentPhone,
+        parentEmail: data.parentEmail,
+        house: data.house,
+        bloodGroup: data.bloodGroup,
+        address: data.address,
+        photoUrl: data.photoUrl,
+      });
+
+      if (!result.success) {
+        notify(result.error, "error");
+        return;
+      }
+
+      const newStudent = toStudentRecord(result.student);
+      setStudents((prev) => [newStudent, ...prev]);
+      notify(
+        `New student enrolled: ${newStudent.firstName} ${newStudent.lastName} (${newStudent.admissionNo})`,
+      );
+    } catch (error: unknown) {
+      console.error("Could not create student.", error);
+      notify("Could not save the student. Please try again.", "error");
+    }
   };
 
   const addStaff = (data: Omit<StaffRecord, "id" | "status">) => {
@@ -147,10 +246,28 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     notify(`New Staff appointed: ${newStaff.firstName} ${newStaff.lastName} (${newStaff.designation})`);
   };
 
-  const markAttendance = (studentId: string, status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED") => {
+  const markAttendance = async (
+    studentId: string,
+    status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED",
+  ) => {
     const student = students.find((s) => s.id === studentId);
-    setAttendanceStatuses((prev) => ({ ...prev, [studentId]: status }));
-    notify(`Attendance recorded for ${student?.firstName || "Student"}: ${status}`);
+    try {
+      const result = await markAttendanceAction({ studentId, status });
+      if (!result.success) {
+        notify(result.error, "error");
+        return;
+      }
+      setAttendanceStatuses((prev) => ({
+        ...prev,
+        [result.record.studentId]: result.record.status,
+      }));
+      notify(
+        `Attendance recorded for ${student?.firstName || "Student"}: ${status}`,
+      );
+    } catch (error: unknown) {
+      console.error("Could not save attendance.", error);
+      notify("Could not save attendance. Please try again.", "error");
+    }
   };
 
   const runPayroll = () => {
@@ -343,6 +460,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         restockInventory,
         issueInventory,
         activeNotification,
+        activeNotificationType,
         dismissNotification: () => setActiveNotification(null),
       }}
     >

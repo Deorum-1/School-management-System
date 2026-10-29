@@ -1,59 +1,93 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import db from "@/lib/db";
-import { revalidatePath } from "next/cache";
+
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date of birth")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+  }, "Enter a valid date of birth");
 
 const studentSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  firstName: z.string().trim().min(2).max(80),
+  lastName: z.string().trim().min(2).max(80),
   gender: z.enum(["MALE", "FEMALE"]),
-  classId: z.string().min(1, "Class is required"),
-  dob: z.string().min(1, "Date of birth is required"),
-  parentName: z.string().min(3, "Parent name is required"),
-  parentPhone: z.string().min(8, "Parent phone is required"),
-  parentEmail: z.string().email("Valid parent email is required"),
+  className: z.string().trim().min(1).max(100),
+  dob: dateSchema,
+  parentName: z.string().trim().min(3).max(120),
+  parentPhone: z.string().trim().min(7).max(30),
+  parentEmail: z.string().trim().email().max(254),
+  house: z.string().trim().max(50).optional(),
+  bloodGroup: z.string().trim().max(10).optional(),
+  address: z.string().trim().max(300).optional(),
+  photoUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
 });
 
-export async function createStudentAction(formData: FormData) {
-  try {
-    const rawData = {
-      firstName: formData.get("firstName") as string,
-      lastName: formData.get("lastName") as string,
-      gender: formData.get("gender") as "MALE" | "FEMALE",
-      classId: formData.get("classId") as string,
-      dob: formData.get("dob") as string,
-      parentName: formData.get("parentName") as string,
-      parentPhone: formData.get("parentPhone") as string,
-      parentEmail: formData.get("parentEmail") as string,
+export async function createStudentAction(input: unknown) {
+  const parsed = studentSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: parsed.error.issues[0]?.message ?? "Student details are invalid.",
     };
+  }
 
-    const validated = studentSchema.parse(rawData);
-    const admissionNo = `APX/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
+  try {
+    const schoolClass = await db.class.findFirst({
+      where: { name: parsed.data.className },
+      select: { id: true },
+    });
 
-    const newStudent = await db.student.create({
+    if (!schoolClass) {
+      return {
+        success: false as const,
+        error: "Select a class that already exists in the school.",
+      };
+    }
+
+    const student = await db.student.create({
       data: {
-        admissionNo,
-        firstName: validated.firstName,
-        lastName: validated.lastName,
-        gender: validated.gender,
-        dob: new Date(validated.dob),
-        classId: validated.classId,
+        admissionNo: `APX/${new Date().getFullYear()}/${randomUUID()
+          .slice(0, 8)
+          .toUpperCase()}`,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        gender: parsed.data.gender,
+        dob: new Date(`${parsed.data.dob}T12:00:00.000Z`),
+        bloodGroup: parsed.data.bloodGroup || null,
+        photoUrl: parsed.data.photoUrl || null,
+        address: parsed.data.address || null,
+        house: parsed.data.house || "Blue Phoenix",
+        classId: schoolClass.id,
         guardians: {
           create: {
-            fullName: validated.parentName,
-            phone: validated.parentPhone,
-            email: validated.parentEmail,
+            fullName: parsed.data.parentName,
             relationship: "Parent/Guardian",
+            phone: parsed.data.parentPhone,
+            email: parsed.data.parentEmail,
           },
         },
       },
+      include: {
+        class: true,
+        guardians: true,
+        invoices: true,
+      },
     });
 
-    revalidatePath("/admin");
-    return { success: true, student: newStudent };
-  } catch (error: any) {
-    return { success: false, error: error.message || "Failed to create student" };
+    revalidatePath("/");
+    return { success: true as const, student };
+  } catch (error: unknown) {
+    console.error("createStudentAction failed.", error);
+    return {
+      success: false as const,
+      error: "Unable to create the student. Please try again.",
+    };
   }
 }
 
@@ -63,12 +97,16 @@ export async function getStudentsAction() {
       include: {
         class: true,
         guardians: true,
-        attendance: true,
+        invoices: true,
       },
       orderBy: { createdAt: "desc" },
     });
-    return { success: true, students };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: true as const, students };
+  } catch (error: unknown) {
+    console.error("getStudentsAction failed.", error);
+    return {
+      success: false as const,
+      error: "Unable to load student records. Please try again.",
+    };
   }
 }

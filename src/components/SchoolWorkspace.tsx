@@ -861,6 +861,9 @@ export function SchoolWorkspace() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const classOptions = Array.from(
+    new Set(students.map((student) => student.className)),
+  );
   const activePage =
     navigation.find((item) => item.id === activeTab) ?? navigation[0];
   const pageTitles: Record<string, string> = {
@@ -882,30 +885,28 @@ export function SchoolWorkspace() {
     const formData = new FormData(event.currentTarget);
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
-    const className = String(formData.get("className") ?? "").trim();
+    const className = String(formData.get("className") ?? "");
     const parentName = String(formData.get("parentName") ?? "").trim();
     const parentEmail = String(formData.get("parentEmail") ?? "").trim();
     const parentPhone = String(formData.get("parentPhone") ?? "").trim();
+    const dob = String(formData.get("dob") ?? "");
     const genderValue = String(formData.get("gender") ?? "FEMALE");
     const gender = genderValue === "MALE" ? "MALE" : "FEMALE";
-    if (!firstName || !lastName || !className || !parentName) return;
+    if (!firstName || !lastName || !className || !parentName || !dob) return;
 
     addStudent({
-      admissionNo: `APX/2027/${Date.now().toString().slice(-4)}`,
       firstName,
       lastName,
       gender,
       className,
-      classId: className.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+      dob,
       house: "Blue Phoenix",
-      dob: "2013-01-01",
       bloodGroup: "",
       address: "",
       photoUrl: "",
       parentName,
       parentPhone,
       parentEmail,
-      status: "ACTIVE",
     });
     setShowAddStudent(false);
     event.currentTarget.reset();
@@ -1170,12 +1171,21 @@ export function SchoolWorkspace() {
                 </label>
                 <label className="block text-[11px] font-medium text-slate-600">
                   Class
-                  <input
+                  <select
                     name="className"
                     required
-                    className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                    placeholder="e.g. JSS 1 Blue"
-                  />
+                    defaultValue=""
+                    className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="" disabled>
+                      Select a class
+                    </option>
+                    {classOptions.map((className) => (
+                      <option key={className} value={className}>
+                        {className}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="block text-[11px] font-medium text-slate-600">
                   Gender
@@ -1186,6 +1196,15 @@ export function SchoolWorkspace() {
                     <option value="FEMALE">Female</option>
                     <option value="MALE">Male</option>
                   </select>
+                </label>
+                <label className="block text-[11px] font-medium text-slate-600">
+                  Date of birth
+                  <input
+                    name="dob"
+                    type="date"
+                    required
+                    className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
                 </label>
                 <label className="block text-[11px] font-medium text-slate-600 sm:col-span-2">
                   Parent / guardian name
@@ -1201,6 +1220,7 @@ export function SchoolWorkspace() {
                   <input
                     name="parentEmail"
                     type="email"
+                    required
                     className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     placeholder="name@example.com"
                   />
@@ -1210,6 +1230,7 @@ export function SchoolWorkspace() {
                   <input
                     name="parentPhone"
                     type="tel"
+                    required
                     className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     placeholder="+234 ..."
                   />
