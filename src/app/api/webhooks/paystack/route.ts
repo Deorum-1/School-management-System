@@ -1,46 +1,86 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { z } from "zod";
 
-export async function POST(req: NextRequest) {
+const webhookSchema = z.object({
+  event: z.string(),
+  data: z
+    .object({
+      reference: z.string().optional(),
+      amount: z.number().nonnegative().optional(),
+    })
+    .passthrough()
+    .optional(),
+});
+
+export async function POST(request: NextRequest) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Webhook is not configured." },
+      { status: 503 },
+    );
+  }
+
+  const signature = request.headers.get("x-paystack-signature");
+  if (!signature || !/^[\da-f]{128}$/i.test(signature)) {
+    return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
+  }
+
   try {
-    const secret = process.env.PAYSTACK_SECRET_KEY || "sk_test_mock_paystack_secret_key";
-    const body = await req.json();
-
-    // Verify Paystack Webhook Signature header if present
-    const hash = req.headers.get("x-paystack-signature");
-    if (hash) {
-      const computedHash = crypto
-        .createHmac("sha512", secret)
-        .update(JSON.stringify(body))
-        .digest("hex");
-
-      if (hash !== computedHash) {
-        return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
-      }
+    const rawBody = await request.text();
+    const expectedSignature = createHmac("sha512", secret)
+      .update(rawBody)
+      .digest();
+    const receivedSignature = Buffer.from(signature, "hex");
+    if (
+      receivedSignature.length !== expectedSignature.length ||
+      !timingSafeEqual(receivedSignature, expectedSignature)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid signature." },
+        { status: 401 },
+      );
     }
 
-    const event = body.event;
-    const data = body.data;
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+    }
 
-    if (event === "charge.success") {
-      const reference = data.reference;
-      const amount = data.amount / 100; // Paystack sends in kobo
-      const customerEmail = data.customer?.email;
+    const parsed = webhookSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
+    }
 
-      console.log(`[Paystack Webhook] Charge Success: Ref: ${reference}, Amount: ₦${amount}, Email: ${customerEmail}`);
-      
-      // Return 200 OK to acknowledge receipt
+    if (parsed.data.event === "charge.success") {
+      const { reference, amount } = parsed.data.data ?? {};
+      if (!reference || amount === undefined) {
+        return NextResponse.json(
+          { error: "Invalid payment event." },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json({
         received: true,
         status: "success",
         reference,
-        amount,
+        amount: amount / 100,
       });
     }
 
     return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("[Paystack Webhook Error]", error);
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error(
+      "Paystack webhook processing failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return NextResponse.json(
+      { error: "Webhook processing failed." },
+      { status: 500 },
+    );
   }
 }

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { X, Printer, ShieldCheck, DollarSign } from "lucide-react";
-import { StaffRecord } from "@/lib/initial-data";
+import type { StaffRecord } from "@/lib/initial-data";
 
 interface PayslipModalProps {
   isOpen: boolean;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { AuthorizationError, requirePermission } from "@/lib/auth";
 import db from "@/lib/db";
 
 const attendanceSchema = z.object({
@@ -40,6 +41,7 @@ function getLagosSchoolDay(now: Date) {
 
 export async function getTodayAttendanceAction() {
   try {
+    await requirePermission("attendance:read");
     const date = getLagosSchoolDay(new Date());
     const records = await db.attendance.findMany({
       where: { date },
@@ -58,7 +60,13 @@ export async function getTodayAttendanceAction() {
 
     return { success: true as const, attendanceStatuses };
   } catch (error: unknown) {
-    console.error("getTodayAttendanceAction failed.", error);
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "getTodayAttendanceAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to load today's attendance. Please try again.",
@@ -67,6 +75,22 @@ export async function getTodayAttendanceAction() {
 }
 
 export async function markAttendanceAction(input: unknown) {
+  try {
+    await requirePermission("attendance:write");
+  } catch (error: unknown) {
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "markAttendanceAction authorization check failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return {
+      success: false as const,
+      error: "Unable to verify access. Please try again.",
+    };
+  }
+
   const parsed = attendanceSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -115,7 +139,10 @@ export async function markAttendanceAction(input: unknown) {
       record: { studentId: record.studentId, status: parsed.data.status },
     };
   } catch (error: unknown) {
-    console.error("markAttendanceAction failed.", error);
+    console.error(
+      "markAttendanceAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to save attendance. Please try again.",

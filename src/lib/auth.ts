@@ -1,46 +1,145 @@
-import { Role, UserSession } from "./permissions";
+import "server-only";
 
-export const DEMO_USERS: Record<Role, UserSession> = {
-  ADMIN: {
-    id: "usr_admin_01",
-    name: "Dr. Katherine Vance",
-    email: "principal@apexacademics.edu",
-    role: "ADMIN",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
-  },
-  TEACHER: {
-    id: "usr_teacher_01",
-    name: "Mr. David Adeleke (M.Sc Physics)",
-    email: "david.adeleke@apexacademics.edu",
-    role: "TEACHER",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    classAssigned: "SS 2",
-  },
-  PARENT: {
-    id: "usr_parent_01",
-    name: "Chief & Mrs. Adebayo Balogun",
-    email: "adebayo.balogun@gmail.com",
-    role: "PARENT",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-    childrenIds: ["std_01", "std_04"],
-  },
-  STUDENT: {
-    id: "usr_student_01",
-    name: "Tunde Balogun",
-    email: "tunde.balogun@student.apex.edu",
-    role: "STUDENT",
-    avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80",
-    studentId: "std_01",
-  },
-  ACCOUNTANT: {
-    id: "usr_accountant_01",
-    name: "Mrs. Folake Sanusi (CPA)",
-    email: "bursary@apexacademics.edu",
-    role: "ACCOUNTANT",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
-  },
-};
+import { createHash, randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import db from "@/lib/db";
+import { hasPermission, Role, UserSession } from "@/lib/permissions";
 
-export function getSession(role: Role = "ADMIN"): UserSession {
-  return DEMO_USERS[role];
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production"
+    ? "__Host-apex-session"
+    : "apex-session";
+
+export class AuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthorizationError";
+  }
+}
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function isRole(value: string): value is Role {
+  return (
+    value === "ADMIN" ||
+    value === "TEACHER" ||
+    value === "PARENT" ||
+    value === "STUDENT" ||
+    value === "ACCOUNTANT"
+  );
+}
+
+export async function createSession(userId: string): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+  await db.session.create({
+    data: {
+      tokenHash: hashToken(token),
+      userId,
+      expiresAt,
+    },
+  });
+
+  cookies().set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function getSessionUser(): Promise<UserSession | null> {
+  const token = cookies().get(SESSION_COOKIE_NAME)?.value;
+  if (!token || !SESSION_TOKEN_PATTERN.test(token)) {
+    return null;
+  }
+
+  const session = await db.session.findUnique({
+    where: { tokenHash: hashToken(token) },
+    select: {
+      expiresAt: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  if (session.expiresAt <= new Date() || !isRole(session.user.role)) {
+    await db.session.deleteMany({
+      where: { tokenHash: hashToken(token) },
+    });
+    return null;
+  }
+
+  return {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    role: session.user.role,
+    avatar: session.user.avatar ?? undefined,
+  };
+}
+
+export async function deleteSession(): Promise<void> {
+  const cookieStore = cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  if (token && SESSION_TOKEN_PATTERN.test(token)) {
+    await db.session.deleteMany({
+      where: { tokenHash: hashToken(token) },
+    });
+  }
+
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+export async function requireAuth(): Promise<UserSession> {
+  const user = await getSessionUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return user;
+}
+
+export async function requireRole(
+  allowedRoles: readonly Role[],
+): Promise<UserSession> {
+  const user = await getSessionUser();
+  if (!user) {
+    throw new AuthorizationError("Your session has expired. Please sign in.");
+  }
+  if (!allowedRoles.includes(user.role)) {
+    throw new AuthorizationError("You do not have permission to do that.");
+  }
+  return user;
+}
+
+export async function requirePermission(
+  permission: string,
+): Promise<UserSession> {
+  const user = await getSessionUser();
+  if (!user) {
+    throw new AuthorizationError("Your session has expired. Please sign in.");
+  }
+  if (!hasPermission(user.role, permission)) {
+    throw new AuthorizationError("You do not have permission to do that.");
+  }
+  return user;
 }

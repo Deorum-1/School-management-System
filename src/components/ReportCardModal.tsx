@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { X, Printer, Download, CheckCircle, Shield } from "lucide-react";
-import { StudentRecord, GradeItem } from "@/lib/initial-data";
+import { X, Printer, CheckCircle, Shield } from "lucide-react";
+import type { StudentRecord, GradeItem } from "@/lib/initial-data";
 
 interface ReportCardModalProps {
   isOpen: boolean;

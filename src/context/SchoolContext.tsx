@@ -19,18 +19,7 @@ import {
   admitApplicantAction,
   getAdmissionApplicantsAction,
 } from "@/actions/admissions";
-import {
-  INITIAL_STUDENTS,
-  INITIAL_STAFF,
-  INITIAL_GRADES,
-  INITIAL_KID_MONITOR,
-  INITIAL_TRANSACTIONS,
-  INITIAL_APPLICANTS,
-  INITIAL_ANNOUNCEMENTS,
-  INITIAL_LESSON_NOTES,
-  INITIAL_HOUSE_STANDINGS,
-  INITIAL_INVENTORY,
-  INITIAL_DISCIPLINE,
+import type {
   StudentRecord,
   StaffRecord,
   GradeItem,
@@ -40,9 +29,20 @@ import {
   LessonNoteRecord,
   ChatMessageRecord,
 } from "@/lib/initial-data";
-import { Role } from "@/lib/permissions";
-import { DEMO_USERS } from "@/lib/auth";
+import type { Role, UserSession } from "@/lib/permissions";
 import { toStudentRecord } from "@/lib/student-mapping";
+
+type SchoolInitialData = {
+  staff: typeof import("@/lib/initial-data").INITIAL_STAFF;
+  grades: typeof import("@/lib/initial-data").INITIAL_GRADES;
+  kidMonitor: typeof import("@/lib/initial-data").INITIAL_KID_MONITOR;
+  transactions: typeof import("@/lib/initial-data").INITIAL_TRANSACTIONS;
+  announcements: typeof import("@/lib/initial-data").INITIAL_ANNOUNCEMENTS;
+  lessonNotes: typeof import("@/lib/initial-data").INITIAL_LESSON_NOTES;
+  inventory: typeof import("@/lib/initial-data").INITIAL_INVENTORY;
+  discipline: typeof import("@/lib/initial-data").INITIAL_DISCIPLINE;
+  houseStandings: typeof import("@/lib/initial-data").INITIAL_HOUSE_STANDINGS;
+};
 
 type NewStudentInput = Pick<
   StudentRecord,
@@ -61,8 +61,8 @@ type NewStudentInput = Pick<
 >;
 
 interface SchoolContextType {
+  currentUser: UserSession;
   currentRole: Role;
-  setCurrentRole: (role: Role) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   students: StudentRecord[];
@@ -72,11 +72,11 @@ interface SchoolContextType {
   kidMonitor: KidMonitorLogRecord[];
   transactions: AccountingTransactionRecord[];
   applicants: ApplicantRecord[];
-  announcements: typeof INITIAL_ANNOUNCEMENTS;
+  announcements: SchoolInitialData["announcements"];
   lessonNotes: LessonNoteRecord[];
-  inventory: typeof INITIAL_INVENTORY;
-  discipline: typeof INITIAL_DISCIPLINE;
-  houseStandings: typeof INITIAL_HOUSE_STANDINGS;
+  inventory: SchoolInitialData["inventory"];
+  discipline: SchoolInitialData["discipline"];
+  houseStandings: SchoolInitialData["houseStandings"];
   chatMessages: ChatMessageRecord[];
   isMobileSimulator: boolean;
   setIsMobileSimulator: (val: boolean) => void;
@@ -114,8 +114,16 @@ const ACTIVE_TAB_IDS = new Set([
   "admission",
 ]);
 
-export function SchoolProvider({ children }: { children: React.ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<Role>("ADMIN");
+export function SchoolProvider({
+  children,
+  user,
+  initialData,
+}: {
+  children: React.ReactNode;
+  user: UserSession;
+  initialData: SchoolInitialData;
+}) {
+  const currentRole = user.role;
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [isMobileSimulator, setIsMobileSimulator] = useState<boolean>(false);
   const [activeNotification, setActiveNotification] = useState<string | null>(null);
@@ -138,53 +146,26 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     setActiveTab(tab);
   }, []);
 
-  const [students, setStudents] = useState<StudentRecord[]>(INITIAL_STUDENTS);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
   const [attendanceStatuses, setAttendanceStatuses] = useState<
     Record<string, "PRESENT" | "ABSENT" | "LATE" | "EXCUSED">
   >({});
-  const [staff, setStaff] = useState<StaffRecord[]>(INITIAL_STAFF);
-  const [grades] = useState<GradeItem[]>(INITIAL_GRADES);
-  const [kidMonitor] = useState<KidMonitorLogRecord[]>(INITIAL_KID_MONITOR);
-  const [transactions, setTransactions] = useState<AccountingTransactionRecord[]>(INITIAL_TRANSACTIONS);
-  const [applicants, setApplicants] = useState<ApplicantRecord[]>(INITIAL_APPLICANTS);
-  const [announcements] = useState(INITIAL_ANNOUNCEMENTS);
-  const [lessonNotes, setLessonNotes] = useState<LessonNoteRecord[]>(INITIAL_LESSON_NOTES);
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
-  const [discipline, setDiscipline] = useState(INITIAL_DISCIPLINE);
-  const [houseStandings, setHouseStandings] = useState(INITIAL_HOUSE_STANDINGS);
-
-  const [chatMessages, setChatMessages] = useState<ChatMessageRecord[]>([
-    {
-      id: "msg_1",
-      senderName: "Mr. David Adeleke",
-      senderRole: "Senior Physics Master",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-      channel: "SS 2 Science Parents",
-      content:
-        "Good morning esteemed parents. Please be advised that the STEM Robotics Project submissions and Physics laboratory practicals conclude this Thursday at 3:00 PM.",
-      timestamp: "08:15 AM",
-    },
-    {
-      id: "msg_2",
-      senderName: "Chief Adebayo Balogun",
-      senderRole: "Parent (Tunde & Sarah Balogun)",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-      channel: "SS 2 Science Parents",
-      content:
-        "Thank you Mr. Adeleke. Tunde mentioned the solar prototype trials yesterday. We appreciate the extra coaching hours provided by the physics department.",
-      timestamp: "08:42 AM",
-    },
-    {
-      id: "msg_3",
-      senderName: "Dr. Kenneth Eze",
-      senderRole: "Parent (Chioma Eze)",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-      channel: "SS 2 Science Parents",
-      content:
-        "Chioma also completed her research summary on electromagnetism. We look forward to the upcoming Science Olympiad awards ceremony.",
-      timestamp: "09:05 AM",
-    },
-  ]);
+  const [staff, setStaff] = useState<StaffRecord[]>(initialData.staff);
+  const [grades] = useState<GradeItem[]>(initialData.grades);
+  const [kidMonitor] = useState<KidMonitorLogRecord[]>(initialData.kidMonitor);
+  const [transactions, setTransactions] =
+    useState<AccountingTransactionRecord[]>(initialData.transactions);
+  const [applicants, setApplicants] = useState<ApplicantRecord[]>([]);
+  const [announcements] = useState(initialData.announcements);
+  const [lessonNotes, setLessonNotes] = useState<LessonNoteRecord[]>(
+    initialData.lessonNotes,
+  );
+  const [inventory, setInventory] = useState(initialData.inventory);
+  const [discipline, setDiscipline] = useState(initialData.discipline);
+  const [houseStandings, setHouseStandings] = useState(
+    initialData.houseStandings,
+  );
+  const [chatMessages, setChatMessages] = useState<ChatMessageRecord[]>([]);
 
   const notify = useCallback((msg: string, type: "success" | "error" = "success") => {
     setActiveNotificationType(type);
@@ -201,31 +182,42 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       try {
         const [studentResult, attendanceResult, applicantResult] =
           await Promise.all([
-          getStudentsAction(),
-          getTodayAttendanceAction(),
-          getAdmissionApplicantsAction(),
-        ]);
+            user.role === "ADMIN" ||
+            user.role === "TEACHER" ||
+            user.role === "ACCOUNTANT"
+              ? getStudentsAction()
+              : Promise.resolve(null),
+            user.role === "ADMIN" || user.role === "TEACHER"
+              ? getTodayAttendanceAction()
+              : Promise.resolve(null),
+            user.role === "ADMIN"
+              ? getAdmissionApplicantsAction()
+              : Promise.resolve(null),
+          ]);
         if (!active) return;
 
-        if (studentResult.success) {
+        if (studentResult?.success) {
           setStudents(studentResult.students.map(toStudentRecord));
-        } else {
+        } else if (studentResult) {
           notify(studentResult.error, "error");
         }
 
-        if (attendanceResult.success) {
+        if (attendanceResult?.success) {
           setAttendanceStatuses(attendanceResult.attendanceStatuses);
-        } else {
+        } else if (attendanceResult) {
           notify(attendanceResult.error, "error");
         }
 
-        if (applicantResult.success) {
+        if (applicantResult?.success) {
           setApplicants(applicantResult.applicants);
-        } else {
+        } else if (applicantResult) {
           notify(applicantResult.error, "error");
         }
       } catch (error: unknown) {
-        console.error("Could not load persisted school data.", error);
+        console.error(
+          "Could not load persisted school data.",
+          error instanceof Error ? error.name : "Unknown error",
+        );
         if (active) {
           notify("Could not load school records. Please refresh to try again.", "error");
         }
@@ -236,7 +228,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [notify]);
+  }, [notify, user.role]);
 
   const addStudent = async (
     data: NewStudentInput,
@@ -268,7 +260,10 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         `New student enrolled: ${newStudent.firstName} ${newStudent.lastName} (${newStudent.admissionNo})`,
       );
     } catch (error: unknown) {
-      console.error("Could not create student.", error);
+      console.error(
+        "Could not create student.",
+        error instanceof Error ? error.name : "Unknown error",
+      );
       notify("Could not save the student. Please try again.", "error");
     }
   };
@@ -302,7 +297,10 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         `Attendance recorded for ${student?.firstName || "Student"}: ${status}`,
       );
     } catch (error: unknown) {
-      console.error("Could not save attendance.", error);
+      console.error(
+        "Could not save attendance.",
+        error instanceof Error ? error.name : "Unknown error",
+      );
       notify("Could not save attendance. Please try again.", "error");
     }
   };
@@ -409,7 +407,10 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       );
       return true;
     } catch (error: unknown) {
-      console.error("Could not admit applicant.", error);
+      console.error(
+        "Could not admit applicant.",
+        error instanceof Error ? error.name : "Unknown error",
+      );
       notify("Could not admit the applicant. Please try again.", "error");
       return false;
     }
@@ -424,7 +425,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
       className: student?.className || "Grade 11",
       infraction: data.infraction,
       sanction: data.sanction,
-      reportedBy: DEMO_USERS[currentRole].name,
+      reportedBy: user.name,
       date: new Date().toISOString().split("T")[0],
       status: "RESOLVED" as const,
       parentNotified: true,
@@ -434,12 +435,11 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendChatMessage = (content: string, channel: string) => {
-    const user = DEMO_USERS[currentRole];
     const newMsg: ChatMessageRecord = {
       id: `msg_${Date.now()}`,
       senderName: user.name,
       senderRole: user.role,
-      avatar: user.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      avatar: user.avatar ?? "",
       channel,
       content,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -467,8 +467,8 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
   return (
     <SchoolContext.Provider
       value={{
+        currentUser: user,
         currentRole,
-        setCurrentRole,
         activeTab,
         setActiveTab: selectActiveTab,
         students,

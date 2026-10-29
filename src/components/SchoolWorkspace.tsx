@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Menu,
   Plus,
   Search,
@@ -23,8 +24,9 @@ import {
 } from "lucide-react";
 import { useSchool } from "@/context/SchoolContext";
 import { NotificationToast } from "@/components/NotificationToast";
-import { StudentRecord } from "@/lib/initial-data";
-import { Role } from "@/lib/permissions";
+import type { StudentRecord } from "@/lib/initial-data";
+import { hasPermission } from "@/lib/permissions";
+import { logoutAction } from "@/actions/auth";
 import {
   NIGERIAN_CLASSES,
   NIGERIAN_CLASS_GROUPS,
@@ -32,13 +34,13 @@ import {
 import { meetsAdmissionRequirement } from "@/lib/admissions";
 
 const navigation = [
-  { id: "dashboard", label: "Overview", icon: LayoutDashboard },
-  { id: "students", label: "Students", icon: Users },
-  { id: "staff", label: "Staff", icon: GraduationCap },
-  { id: "attendance", label: "Attendance", icon: ClipboardCheck },
-  { id: "grading", label: "Results", icon: BookOpen },
-  { id: "accounting", label: "Fees & finance", icon: Wallet },
-  { id: "admission", label: "Admissions", icon: CircleDollarSign },
+  { id: "dashboard", label: "Overview", icon: LayoutDashboard, permission: "dashboard:read" },
+  { id: "students", label: "Students", icon: Users, permission: "students:read" },
+  { id: "staff", label: "Staff", icon: GraduationCap, permission: "staff:read" },
+  { id: "attendance", label: "Attendance", icon: ClipboardCheck, permission: "attendance:read" },
+  { id: "grading", label: "Results", icon: BookOpen, permission: "grades:read" },
+  { id: "accounting", label: "Fees & finance", icon: Wallet, permission: "accounting:read" },
+  { id: "admission", label: "Admissions", icon: CircleDollarSign, permission: "admission:read" },
 ];
 
 const currency = new Intl.NumberFormat("en-NG", {
@@ -409,9 +411,11 @@ function Overview({
 function StudentsView({
   query,
   onAdd,
+  canAdd,
 }: {
   query: string;
   onAdd: () => void;
+  canAdd: boolean;
 }) {
   const { students } = useSchool();
   const [classFilter, setClassFilter] = useState("All classes");
@@ -433,12 +437,14 @@ function StudentsView({
               Manage enrollment and keep student records up to date.
             </p>
           </div>
-          <button
-            onClick={onAdd}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" /> Add student
-          </button>
+          {canAdd && (
+            <button
+              onClick={onAdd}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" /> Add student
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3.5 sm:px-6">
           <p className="text-[11px] text-slate-500">
@@ -971,8 +977,7 @@ export function SchoolWorkspace() {
   const {
     activeTab,
     setActiveTab,
-    currentRole,
-    setCurrentRole,
+    currentUser,
     students,
     addStudent,
     activeNotification,
@@ -980,8 +985,16 @@ export function SchoolWorkspace() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const availableNavigation = navigation.filter((item) =>
+    hasPermission(currentUser.role, item.permission),
+  );
+  const visibleTab = availableNavigation.some((item) => item.id === activeTab)
+    ? activeTab
+    : "dashboard";
   const activePage =
-    navigation.find((item) => item.id === activeTab) ?? navigation[0];
+    availableNavigation.find((item) => item.id === visibleTab) ??
+    availableNavigation[0] ??
+    navigation[0];
   const pageTitles: Record<string, string> = {
     dashboard: "Overview",
     students: "Students",
@@ -1029,12 +1042,13 @@ export function SchoolWorkspace() {
   };
 
   const content = (() => {
-    switch (activeTab) {
+    switch (visibleTab) {
       case "students":
         return (
           <StudentsView
             query={search}
             onAdd={() => setShowAddStudent(true)}
+            canAdd={hasPermission(currentUser.role, "students:write")}
           />
         );
       case "staff":
@@ -1094,9 +1108,9 @@ export function SchoolWorkspace() {
             Workspace
           </p>
           <nav className="space-y-1">
-            {navigation.map((item) => {
+            {availableNavigation.map((item) => {
               const Icon = item.icon;
-              const selected = activeTab === item.id;
+              const selected = visibleTab === item.id;
               return (
                 <button
                   key={item.id}
@@ -1157,7 +1171,7 @@ export function SchoolWorkspace() {
             </button>
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-slate-900">
-                {pageTitles[activeTab] ?? activePage.label}
+                {pageTitles[visibleTab] ?? activePage.label}
               </p>
               <p className="mt-0.5 hidden text-[10px] text-slate-500 sm:block">
                 {new Date().toLocaleDateString("en-US", {
@@ -1198,26 +1212,32 @@ export function SchoolWorkspace() {
               )}
             </button>
             <span className="hidden h-7 w-px bg-slate-200 sm:block" />
-            <label className="sr-only" htmlFor="role-select">
-              Current role
-            </label>
-            <select
-              id="role-select"
-              value={currentRole}
-              onChange={(event) =>
-                setCurrentRole(event.target.value as Role)
-              }
-              className="max-w-[108px] rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] font-semibold text-slate-700 outline-none focus:border-blue-300 sm:max-w-none sm:px-3 sm:text-[11px]"
-            >
-              <option value="ADMIN">Admin</option>
-              <option value="TEACHER">Teacher</option>
-              <option value="PARENT">Parent</option>
-              <option value="STUDENT">Student</option>
-              <option value="ACCOUNTANT">Accountant</option>
-            </select>
-            <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700 sm:flex">
-              AC
-            </span>
+            <div className="hidden items-center gap-2 sm:flex">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+                {currentUser.name
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((part) => part[0] ?? "")
+                  .join("")
+                  .toUpperCase()}
+              </span>
+              <div className="max-w-36">
+                <p className="truncate text-[11px] font-semibold text-slate-800">
+                  {currentUser.name}
+                </p>
+                <p className="text-[10px] text-slate-500">{currentUser.role}</p>
+              </div>
+            </div>
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                aria-label="Sign out"
+                title="Sign out"
+                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         </header>
 
@@ -1228,7 +1248,7 @@ export function SchoolWorkspace() {
                 School administration
               </p>
               <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
-                {pageTitles[activeTab] ?? activePage.label}
+                {pageTitles[visibleTab] ?? activePage?.label ?? "Overview"}
               </h1>
             </div>
             <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-medium text-slate-600 sm:flex">

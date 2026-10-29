@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { ApplicantRecord } from "@/lib/initial-data";
+import type { ApplicantRecord } from "@/lib/initial-data";
 import { meetsAdmissionRequirement } from "@/lib/admissions";
+import { AuthorizationError, requirePermission } from "@/lib/auth";
 import { NIGERIAN_CLASSES } from "@/lib/school-classes";
 import db from "@/lib/db";
 
@@ -67,6 +68,7 @@ function toApplicantRecord(
 
 export async function getAdmissionApplicantsAction() {
   try {
+    await requirePermission("admission:read");
     const applicants = await db.admissionApplicant.findMany({
       orderBy: [{ createdAt: "desc" }, { appNo: "asc" }],
     });
@@ -78,7 +80,13 @@ export async function getAdmissionApplicantsAction() {
       ),
     };
   } catch (error: unknown) {
-    console.error("getAdmissionApplicantsAction failed.", error);
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "getAdmissionApplicantsAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to load admission applications. Please try again.",
@@ -87,6 +95,22 @@ export async function getAdmissionApplicantsAction() {
 }
 
 export async function admitApplicantAction(input: unknown) {
+  try {
+    await requirePermission("admission:write");
+  } catch (error: unknown) {
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "admitApplicantAction authorization check failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return {
+      success: false as const,
+      error: "Unable to verify access. Please try again.",
+    };
+  }
+
   const parsed = admissionInputSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -198,7 +222,10 @@ export async function admitApplicantAction(input: unknown) {
       student: outcome.student,
     };
   } catch (error: unknown) {
-    console.error("admitApplicantAction failed.", error);
+    console.error(
+      "admitApplicantAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to admit the applicant. No student record was saved.",

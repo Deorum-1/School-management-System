@@ -2,7 +2,7 @@
 
 import React from "react";
 import { X, Printer, ShieldCheck, Award } from "lucide-react";
-import { StudentRecord } from "@/lib/initial-data";
+import type { StudentRecord } from "@/lib/initial-data";
 
 interface TranscriptModalProps {
   isOpen: boolean;

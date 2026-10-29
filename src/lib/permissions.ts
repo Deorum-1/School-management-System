@@ -13,6 +13,7 @@ export interface UserSession {
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   ADMIN: [
+    "dashboard:read",
     "students:read",
     "students:write",
     "staff:read",
@@ -57,6 +58,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "broadcast:send",
   ],
   TEACHER: [
+    "dashboard:read",
     "students:read",
     "attendance:read",
     "attendance:write",
@@ -84,7 +86,6 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "parent_portal:read",
     "kidmonitor:read",
     "grades:read",
-    "attendance:read",
     "payment:read",
     "payment:write",
     "timetable:read",
@@ -101,7 +102,6 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "assignments:submit",
     "grades:read",
     "timetable:read",
-    "attendance:read",
     "house_points:read",
     "chat:read",
     "chat:write",
@@ -109,6 +109,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "transcript:read",
   ],
   ACCOUNTANT: [
+    "dashboard:read",
     "accounting:read",
     "accounting:write",
     "payroll:read",

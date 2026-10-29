@@ -13,9 +13,9 @@ A school management workspace built with Next.js, TypeScript, Tailwind CSS, and 
 - Nigerian class structure: Nursery 1–3, Primary 1–6, JSS 1–3, and SS 1–3
 - Responsive navigation for desktop and mobile
 
-The student directory, daily attendance, and admissions screens use Prisma server actions backed by SQLite, so those records persist across reloads. Confirming an admission creates the student and guardian records and updates the applicant in one database transaction. `npm run db:seed` safely seeds the demo classes, students, guardians, and applicants and can be run more than once. The other modules still use demo data held in client state.
+The student directory, daily attendance, and admissions screens use Prisma server actions backed by SQLite. Enrolling an approved applicant creates the student and guardian records and updates the applicant in one database transaction. `npm run db:seed` safely seeds demo classes, students, guardians, and applicants and can be run more than once. Other modules still use demo data; those data sets are rendered only for authenticated roles with the corresponding read permission and are not persisted.
 
-Authentication and authorization are not implemented. The role selector is only a demo control, and the server actions are not access-controlled. Do not use this app with real student data or deploy it publicly until sign-in and server-side permission checks are in place.
+The private workspace requires a database-backed login. Passwords are stored as scrypt hashes, and the browser receives only a random, HTTP-only session token whose hash is stored in the `Session` table. Server actions enforce the existing role permissions. The parent and student roles do not yet have dedicated portal pages, and login rate limiting must be supplied by a trusted reverse proxy or hosting platform before public deployment.
 
 ## Getting started
 
@@ -27,20 +27,26 @@ Authentication and authorization are not implemented. The role selector is only 
 
 2. Copy `.env.example` to `.env` and set any integration keys you need.
 
-3. Start the development server:
+3. Generate the Prisma client and apply migrations:
 
    ```bash
+   npm run db:generate
+   npm run db:migrate
+   ```
+
+4. Create the first administrator in an interactive terminal. The password prompt is not echoed:
+
+   ```bash
+   npm run auth:create-admin
+   ```
+
+5. Optionally seed demo school data, then start the app:
+
+   ```bash
+   npm run db:seed
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000).
+6. Open [http://localhost:3000](http://localhost:3000) and sign in with the administrator account.
 
-To generate the Prisma client and apply database migrations, run:
-
-```bash
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-```
-
-`npm run build` and `npm run lint` currently report pre-existing lint errors in files outside the new workspace UI. Run `npx tsc --noEmit` to check TypeScript types.
+Production deployments must use HTTPS and a configured `PAYSTACK_SECRET_KEY` for the public Paystack webhook. Do not expose `.env` or use the demo seed data as real student records.

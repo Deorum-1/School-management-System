@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { AuthorizationError, requirePermission } from "@/lib/auth";
 import db from "@/lib/db";
 
 const dateSchema = z
@@ -29,6 +30,22 @@ const studentSchema = z.object({
 });
 
 export async function createStudentAction(input: unknown) {
+  try {
+    await requirePermission("students:write");
+  } catch (error: unknown) {
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "createStudentAction authorization check failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return {
+      success: false as const,
+      error: "Unable to verify access. Please try again.",
+    };
+  }
+
   const parsed = studentSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -83,7 +100,10 @@ export async function createStudentAction(input: unknown) {
     revalidatePath("/");
     return { success: true as const, student };
   } catch (error: unknown) {
-    console.error("createStudentAction failed.", error);
+    console.error(
+      "createStudentAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to create the student. Please try again.",
@@ -93,6 +113,7 @@ export async function createStudentAction(input: unknown) {
 
 export async function getStudentsAction() {
   try {
+    await requirePermission("students:read");
     const students = await db.student.findMany({
       include: {
         class: true,
@@ -103,7 +124,13 @@ export async function getStudentsAction() {
     });
     return { success: true as const, students };
   } catch (error: unknown) {
-    console.error("getStudentsAction failed.", error);
+    if (error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message };
+    }
+    console.error(
+      "getStudentsAction failed.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
     return {
       success: false as const,
       error: "Unable to load student records. Please try again.",

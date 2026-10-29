@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { INITIAL_STUDENTS, StudentRecord } from "@/lib/initial-data";
+import type { StudentRecord } from "@/lib/initial-data";
 
 export type StudentWithRelations = Prisma.StudentGetPayload<{
   include: {
@@ -17,23 +17,20 @@ const houses: StudentRecord["house"][] = [
 ];
 
 export function toStudentRecord(student: StudentWithRelations): StudentRecord {
-  const demoRecord = INITIAL_STUDENTS.find(
-    (record) => record.admissionNo === student.admissionNo,
-  );
   const feesDue = student.invoices.length
     ? student.invoices.reduce(
         (total, invoice) =>
           total + Math.max(0, invoice.amount - invoice.amountPaid),
         0,
       )
-    : (demoRecord?.feesDue ?? 350000);
+    : 350000;
   const feesStatus = student.invoices.length
     ? feesDue === 0
       ? "PAID"
       : student.invoices.some((invoice) => invoice.amountPaid > 0)
         ? "PARTIAL"
         : "PENDING"
-    : (demoRecord?.feesStatus ?? "PENDING");
+    : "PENDING";
   const guardian = student.guardians[0];
 
   return {
