@@ -103,6 +103,16 @@ interface SchoolContextType {
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
+const ACTIVE_TAB_STORAGE_KEY = "apex-academics-active-tab";
+const ACTIVE_TAB_IDS = new Set([
+  "dashboard",
+  "students",
+  "staff",
+  "attendance",
+  "grading",
+  "accounting",
+  "admission",
+]);
 
 export function SchoolProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<Role>("ADMIN");
@@ -112,6 +122,21 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
   const [activeNotificationType, setActiveNotificationType] = useState<
     "success" | "error"
   >("success");
+
+  useEffect(() => {
+    const savedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (savedTab && ACTIVE_TAB_IDS.has(savedTab)) {
+      setActiveTab(savedTab);
+    } else {
+      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, "dashboard");
+    }
+  }, []);
+
+  const selectActiveTab = useCallback((tab: string) => {
+    if (!ACTIVE_TAB_IDS.has(tab)) return;
+    window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tab);
+    setActiveTab(tab);
+  }, []);
 
   const [students, setStudents] = useState<StudentRecord[]>(INITIAL_STUDENTS);
   const [attendanceStatuses, setAttendanceStatuses] = useState<
@@ -445,7 +470,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         currentRole,
         setCurrentRole,
         activeTab,
-        setActiveTab,
+        setActiveTab: selectActiveTab,
         students,
         attendanceStatuses,
         staff,
