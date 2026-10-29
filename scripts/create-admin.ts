@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { createInterface } from "node:readline/promises";
+import { randomBytes } from "node:crypto";
 import { stdin, stdout } from "node:process";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -13,69 +14,27 @@ const adminSchema = z.object({
   email: z.string().trim().email().max(254).transform((email) => email.toLowerCase()),
 });
 
-function promptSecret(label: string): Promise<string> {
-  if (!stdin.isTTY) {
-    return Promise.reject(
-      new Error("Run this command from an interactive terminal."),
+async function main() {
+  const args = process.argv.slice(2);
+  let name: string;
+  let email: string;
+
+  if (args.length === 2) {
+    [name, email] = args;
+  } else if (args.length === 0 && stdin.isTTY) {
+    const prompt = createInterface({ input: stdin, output: stdout });
+    name = await prompt.question("Admin name: ");
+    email = await prompt.question("Admin email: ");
+    prompt.close();
+  } else {
+    throw new Error(
+      'Run this command in an interactive terminal or provide "name" and "email".',
     );
   }
-
-  stdout.write(label);
-  stdin.setRawMode(true);
-  stdin.resume();
-
-  return new Promise((resolve, reject) => {
-    let value = "";
-
-    const finish = (error?: Error) => {
-      stdin.off("data", onData);
-      stdin.setRawMode(false);
-      stdin.pause();
-      stdout.write("\n");
-      if (error) {
-        reject(error);
-      } else {
-        resolve(value);
-      }
-    };
-
-    const onData = (chunk: Buffer | string) => {
-      for (const character of chunk.toString()) {
-        if (character === "\u0003") {
-          finish(new Error("Admin setup canceled."));
-          return;
-        }
-        if (character === "\r" || character === "\n") {
-          finish();
-          return;
-        }
-        if (character === "\u007f" || character === "\b") {
-          value = value.slice(0, -1);
-        } else if (character >= " ") {
-          value += character;
-        }
-      }
-    };
-
-    stdin.on("data", onData);
-  });
-}
-
-async function main() {
-  const prompt = createInterface({ input: stdin, output: stdout });
-  const name = await prompt.question("Admin name: ");
-  const email = await prompt.question("Admin email: ");
-  prompt.close();
 
   const parsed = adminSchema.safeParse({ name, email });
   if (!parsed.success) {
     throw new Error("Enter a valid name and email address.");
-  }
-
-  const password = await promptSecret("Admin password (minimum 12 characters): ");
-  const confirmation = await promptSecret("Confirm password: ");
-  if (password.length < 12 || password !== confirmation) {
-    throw new Error("Passwords must match and contain at least 12 characters.");
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -88,6 +47,7 @@ async function main() {
     );
   }
 
+  const password = randomBytes(32).toString("base64url");
   await prisma.user.create({
     data: {
       name: parsed.data.name,
@@ -97,7 +57,10 @@ async function main() {
     },
   });
 
-  console.info("Admin account created. You can now sign in.");
+  console.info("Admin account created in the database.");
+  console.info(`Sign-in email: ${parsed.data.email}`);
+  console.info(`Generated password (shown once): ${password}`);
+  console.info("Save this password securely; it cannot be recovered.");
 }
 
 main()

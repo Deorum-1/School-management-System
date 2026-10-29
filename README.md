@@ -34,11 +34,13 @@ The private workspace requires a database-backed login. Users can register as a 
    npm run db:migrate
    ```
 
-4. Create the first administrator in an interactive terminal. The password prompt is not echoed:
+4. Create the first administrator in an interactive terminal. The command generates a strong password, saves its hash to Prisma, and displays the password once:
 
    ```bash
    npm run auth:create-admin
    ```
+
+   Save the generated password securely; it cannot be recovered.
 
 5. Optionally seed demo school data, then start the app:
 
